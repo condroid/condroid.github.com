@@ -80,6 +80,11 @@ Busybox被视为最简单的Linux系统，因为其包含了构建一个完整Li
 ```
 adb push bin/busybox /system/local/bin/
 export PATH=/system/local/bin:$PATH
-```
+```  
+**(2)创建Busybox的rootfs**
+
+	lxc-create -t busybox -n bb
+
+**(3)**
 
 

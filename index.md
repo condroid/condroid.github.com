@@ -71,12 +71,12 @@ LXC项目中conf.c中调用了tmpfile()这个API提供的函数。该函数在An
 ## Run Busybox container
 Busybox是一个二进制可执行程序，里面集成压缩了Linux的许多工具,大约包括了一百多个常用的Linux命令和工具。  
 Busybox被视为最简单的Linux系统，因为其包含了构建一个完整Linux文件系统层级的所有工具，如init，mount，mknod等，所以运行起一个Busybox Container可以验证我们的Android LXC环境是否能正常工作了。  
-**（1）静态编译Busybox**
-为了在创建Container的rootfs时（lxc-create），不出现动态共享库错误，需要静态编译一个完整的busybox
+**（1）静态编译Busybox**  
+为了在创建Container的rootfs时（lxc-create），不出现动态共享库错误，需要静态编译一个完整的busybox  
 1. 从[Busybox](http://www.busybox.net)官网上下载busybox源码;  
-1. make menuconfig, --> Build Options, --> Build Busybox as a static binary;  
-1. make  
-1. 将编译出来的busybox，放到Host的/system/local/bin目录下，并添加环境变量
+2. make menuconfig, --> Build Options, --> Build Busybox as a static binary;  
+3. make  
+4. 将编译出来的busybox，放到Host的/system/local/bin目录下，并添加环境变量
 ```
 adb push bin/busybox /system/local/bin/
 export PATH=/system/local/bin:$PATH
