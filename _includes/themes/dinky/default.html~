@@ -23,9 +23,8 @@
         <p class="header">{{ site.tagline }}</p>
         	<ul id="extras-nav">
 			<li><a href="/">Home</a></li>
-                        <li><a href="/news.html">News</a></li>
 			<li><a href="/down.html">Download</a></li>
-			
+			<li><a href="/archives.html">Archives</a></li>
 		</ul>
        
         

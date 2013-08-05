@@ -1,7 +1,7 @@
 ---
 layout: page
-title: Condroid
-tagline: Testtt
+title: Condroid Project
+tagline: Supporting tagline
 ---
 {% include JB/setup %}
 
