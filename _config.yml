@@ -12,9 +12,9 @@ markdown: rdiscount
 #
 title : Condroid
 tagline: Android Container
-#author :
-#  name : Name Lastname
-#  email : blah@email.test
+author :
+  name : ZJU Arclab
+  email : leixu@zju.edu.cn
  # github : username
   #twitter : username
   #feedburner : feedname
