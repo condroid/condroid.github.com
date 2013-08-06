@@ -25,9 +25,9 @@
 			<li><a href="/">Home</a></li>
                         <li><a href="/docs.html">Documents</a></li>
 			<li><a href="/down.html">Download</a></li>
-			
+			<li><a href="/about.html">About</a></li>			
 		</ul>
-       
+  
         
       </header>
 
@@ -35,9 +35,10 @@
       {{ content }}
       </section>
 
-    <!--  <footer>
-      <p><small>Hosted on <a href="http://pages.github.com/">GitHub Pages</a> using the <a href="https://github.com/sodabrew/theme-dinky">Dinky theme</a> for <a href="http://jekyllbootstrap.com/">Jekyll Bootstrap</a></small></p>
-      </footer> -->
+    <footer>
+      <p>Held by Arclab, Zhejiang University, China. Contact us: leixu@zju.edu.cn
+	</p>
+      </footer> 
     </div>
     <!--[if !IE]><script>fixScale(document);</script><!--<![endif]-->
   </body>

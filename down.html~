@@ -1,6 +1,6 @@
 ---
 layout: page
-title: "Down"
+title: "Download"
 description: ""
 ---
 {% include JB/setup %}
