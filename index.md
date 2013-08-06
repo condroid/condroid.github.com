@@ -76,15 +76,39 @@ Busybox被视为最简单的Linux系统，因为其包含了构建一个完整Li
 1. 从[Busybox](http://www.busybox.net)官网上下载busybox源码;  
 2. make menuconfig, --> Build Options, --> Build Busybox as a static binary;  
 3. make  
-4. 将编译出来的busybox，放到Host的/system/local/bin目录下，并添加环境变量
+4. 将编译出来的busybox，放到Host的/system/local/bin目录下，并添加环境变量  
+
 ```
 adb push bin/busybox /system/local/bin/
 export PATH=/system/local/bin:$PATH
 ```  
-**(2)创建Busybox的rootfs**
+**(2) 创建Busybox的rootfs**
 
 	lxc-create -t busybox -n bb
 
-**(3)**
+**(3) 修改Busybox的config**
+
+	lxc.utsname = bb
+	lxc.tty = 1
+	lxc.pts = 1
+	lxc.rootfs = /system/local/var/lib/lxc/bb/rootfs  
+	
+	lxc.mount.entry = /lib /system/local/var/lib/lxc/bb/rootfs/lib none ro,bind 0 0
+	lxc.mount.entry = /lib /system/local/var/lib/lxc/bb/rootfs/usr/lib none ro,bind 0 0
+
+**(4) 挂载cgroup文件系统**
+
+	for t in `ls /system/cgroup`
+	do
+		mount -t cgroup -o $t cgroup /system/cgroup/$t
+	done
+
+**(5)解决No such file or directory: /dev/shm的问题(optional)**
+
+	mkdir -p /dev/shm
+	mount -t tmpfs -o nodev,noexec tmpfs /dev/shm
+## Run Android JellyBean container
+**(1) **
+
 
 
