@@ -6,8 +6,6 @@ category:
 tags: []
 ---
 {% include JB/setup %}
-Cgroup Research Report
-=========
 
 Control Groups (Cgroups) 是 Red Hat Enterprise Linux 6 (以后简称 RHEL6) 提供的一项内核功能。Cgroup是将任意进程进行分组化管理的内核功能。  
 Cgroup提供了一个cgroup虚拟文件系统，作为进行分组管理和各子系统设置的`用户接口`。因此，要使用cgroup，必须先挂载cgroup文件系统：
@@ -63,11 +61,12 @@ Cgroups 的组织结构为层次体系（目录树），Cgroups有多棵目录�
         umount /sys/fs/cgroup/cpu_and_mem
 
 ###Cgroup创建进程组实例
-上面，已经创建了一个层级结构，即进程组的父目录，接下来就可以在该结构下创建group了。
+上面，已经创建了一个层级结构，即进程组的父目录，接下来就可以在该结构下创建group了。  
 1. 创建组
   
         mkdir /sys/fs/cgroup/cpu/lab1/group1
         mkdir /sys/fs/cgroup/cpuset/lab1/group1
+
 1. tasks
 此时，cpu/lab1/group1的目录里已经自动生成了许多文件，文件名前缀为cgroup的是由cgroup的基础结构提供的特殊文件;前缀为cpu的是由cpu子系统提供的特殊文件。在这些特殊的文件中，最重要的是`tasks`文件，其记录了属于这个分组的PID。
 1. 分组

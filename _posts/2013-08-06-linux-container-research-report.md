@@ -7,7 +7,6 @@ tags: []
 ---
 {% include JB/setup %}
 
-# LXC代码阅读文档整理
 
 ## 1. 综述
 
