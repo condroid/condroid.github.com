@@ -1,8 +1,5 @@
-<!-- ---
-theme:
-  name: dinky
+---
+layout: default
 ---
 {% include JB/setup %}
-{% include themes/dinky/default.html %}
--->
-
+{% include themes/dinky/default.html~ %}
