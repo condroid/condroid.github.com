@@ -1,0 +1,370 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="author" content="ZJU Arclab" />
+    <title>Linux Container Research Report</title>
+
+    <link rel="stylesheet" href="/assets/themes/dinky/css/styles.css">
+    <link rel="stylesheet" href="/assets/themes/dinky/css/pygment_trac.css">
+    <script src="/assets/themes/dinky/js/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header"><a href="/">Condroid</a></h1>
+        <p class="header">Android Container</p>
+        	<ul id="extras-nav">
+			<li><a href="/">Home</a></li>
+                        <li><a href="/docs.html">Documents</a></li>
+			<li><a href="/down.html">Download</a></li>
+			<li><a href="/about.html">About</a></li>			
+		</ul>
+  
+        
+      </header>
+
+      <section>
+      
+<section>
+  <h1>Linux Container Research Report</h1>
+
+  <h1>LXC代码阅读文档整理</h1>
+
+<h2>1. 综述</h2>
+
+<p>lxc是Linux Container的用户态工具包。其代码由三部分组成：</p>
+
+<ol>
+<li>shell脚本，部分lxc命令是用shell脚本写就的。</li>
+<li>c语言代码，最终编译成可执行文件。这部分代码也用来提供最终的lxc命令。但是这些代码以处理命令行参数，读取配置文件等为主。</li>
+<li>c语言代码，最终编译为动态链接库liblxc.so。该动态库提供了lxc项目的大部分功能，如配置文件分析、日志记录、容器的创建、通信等。lxc命令的各项功能基本都是通过调用liblxc.so中的函数来完成的。</li>
+</ol>
+
+
+<p>在命名习惯上， 生成lxc命令的c源文件都有<code>lxc_</code>的前缀。而生成liblxc.so的c源文件则没有该前缀。</p>
+
+<h2>2. lxc-start</h2>
+
+<p>lxc-start的执行过程大致就是两步：</p>
+
+<ol>
+<li>解析命令行和配置文件</li>
+<li>创建新的进程运行container</li>
+</ol>
+
+
+<h3>2.1 解析命令行和配置文件</h3>
+
+<p>lxc-start的main函数在lxc_start.c中。从main的流程中能大致窥探出lxc-start的执行过程。首先调用<code>lxc_arguments_parse</code>来分析命令行，再调用<code>lxc_config_read</code>来解析配置文件，等获取好足够的信息后，调用<code>lxc_start</code>开始了container。</p>
+
+<h4>lxc_arguments_parse</h4>
+
+<p>函数的实现位于arguments.c中。通过该函数的执行，命令行参数中的信息被存放到了类型为<code>lxc_arguments</code>的变量my_args中。命令行参数中有几个我们可以注意一下：</p>
+
+<ul>
+<li>"-n" 指定了container的名字</li>
+<li>"-c" 指定了某个文件作为container的console</li>
+<li>"-s" 在命令行中指定key=value的config选项</li>
+<li>"-o" 指定输出的log文件</li>
+<li>"-l" log的打印级别。用"-l DEBUG"命令行参数，log打印的信息最详细</li>
+</ul>
+
+
+<p><code>lxc_arguments</code>中有一个字段<code>lxcpath</code>指定了lxc container的存放路径。可以在命令参数-P选项中设置。如果不设置，会启用默认参数。该默认参数是在编译lxc代码的时候指定的，一般情况下为"/usr/local/var/lib/lxc"或"/var/lib/lxc"。在本文中，我们一律用<em>LXCPATH</em>来表示该路径。</p>
+
+<p>另外，我们约定用<em>CT-NAME</em>表示-n参数指定的container的名称。</p>
+
+<h4>lxc_config_read</h4>
+
+<p>它的实现在confile.c中。逐行读取配置文件。并调用confile.c下的<code>parse_line</code>来每行做解析。因为配置文件每行都是key=value的形式的，所以<code>parse_line</code>的主要内容是找到"=",分析出(key, value)对并做处理。</p>
+
+<p>配置文件的路径由-f参数指定。不指定则从<em>LXCPATH/CT-NAME/config</em>中读取。</p>
+
+<p>confile.c的真正核心内容在与95行定义的一个结构体数组</p>
+
+<pre><code>static struct lxc_config_t config[] = {
+    { "lxc.arch",                 config_personality          },
+    { "lxc.pts",                  config_pts                  },
+    { "lxc.tty",                  config_tty                  },
+    { "lxc.devttydir",            config_ttydir               },
+    .....
+};
+</code></pre>
+
+<p>其中<code>lxc_config_t</code>结构体的定义如下:</p>
+
+<pre><code>typedef int (*config_cb)(const char *key, const char *value, struct lxc_conf *lxc_conf);
+struct lxc_config_t {
+    char* name;
+    config_cb cb;
+};
+</code></pre>
+
+<p><code>lxc_config_t</code>结构体的name字段给定了key的值，回调函数cb给出了对应key的处理方法。整个config结构体数组就是键值与对应动作的一个查找表。</p>
+
+<p>现在我们来考虑一个场景。我们在配置文件中写入了<code>lxc.tty = 4</code>。<code>parse_line</code>会解析出(lxc.tty, 4)的序对。到config中查询得出其对应的处理函数是<code>config_tty</code>,于是就开始调用<code>config_tty</code>。</p>
+
+<p>函数指针<code>config_cb</code>一共有三个参数，<code>key</code>指的是如<code>lxc.tty</code>之类的键，而<code>value</code>指的是如<code>4</code>之类的值。<code>lxc_conf</code>用来存放config文件的分析结果。</p>
+
+<p>lxc_config_read读取好的配置文件放在类型为lxc_conf的结构体指针conf。lxc_conf的定义在conf.h中。</p>
+
+<h3>2.2 调用lxc_start</h3>
+
+<p>让我们再次回到main函数。前面我们通过分析命令行参数和配置文件，收集了container的一系列信息，接下来就该启动container了。</p>
+
+<p>main函数255行的<code>lxc_start</code>打响了了启动container的第一枪。<code>lxc_start</code>的实现在start.c中，函数原型如下：</p>
+
+<pre><code>int lxc_start(const char* name, char *const argv[], struct lxc_conf *conf, const char *lxcpath)
+</code></pre>
+
+<p>四个参数的含义如下：</p>
+
+<ul>
+<li>name <em>CT-NAME</em></li>
+<li>argv container要执行的第一个命令。可以通过命令行参数指定, 如“lxc-start -n android4.2 /init”，这里的argv就会是{"/init", NULL}。如果没有指定，默认是{"/sbin/init", NULL}</li>
+<li>conf 前面解析好的container配置文件中指定的配置信息。</li>
+<li>lxcpath LXCPATH</li>
+</ul>
+
+
+<p><code>lxc_start</code>首先调用<code>lxc_check_inherited</code>来关闭所有打开的文件句柄。0(stdin), 1(stdout), 2(stder)和日志文件除外。紧接着就调<code>__lxc_start</code>。</p>
+
+<h4>__lxc_start</h4>
+
+<p>其原型如下：</p>
+
+<pre><code>int __lxc_start(const char* name, struct lxc_conf *conf, struct lxc_operators *op, void *data, const char *lxcpath)
+</code></pre>
+
+<p><code>lxc_operators</code>结构体定义如下：</p>
+
+<pre><code>struct lxc_operations {
+    int (*start)(struct lxc_handler *, void *);
+    int (*post_start)(struct lxc_handler *, void *);
+};
+</code></pre>
+
+<p>各个参数含义如下：</p>
+
+<ul>
+<li>name <em>CT-NAME</em></li>
+<li>conf container配置信息</li>
+<li>op 用lxc_operator结构体来存放了两个函数指针start和post_start。这两个指针分别指向start.c的start函数和post_start函数。</li>
+<li>data start_args类型的结构体，唯一的成员变量argv指向了lxc_start的实参argv，也就是container要执行的init。</li>
+<li>lxcpath <em>LXCPATH</em></li>
+</ul>
+
+
+<p><code>__lxc_start</code>代码不复杂。我们将比较重要的几个函数调用抽出来看。</p>
+
+<h4>lxc_init</h4>
+
+<p><code>__lxc_start</code>调用的第一个函数，用来初始化lxc_handler结构体。传入的三个参数依次为：</p>
+
+<ul>
+<li>name <em>CT-NAME</em></li>
+<li>conf container的配置信息</li>
+<li>lxcpath <em>LXCPATH</em></li>
+</ul>
+
+
+<p>函数先新分配一个lxc_handler的结构体handler，设置其conf、lxcpath和name字段。然后调用了<code>lxc_command_init</code>新创建了一个socket并listen之，新建socket的句柄放置在handler->maincmd_fd中。该socket的作用应为接受外部命令。<code>lxc_command_init</code>的实现在commands.c中。其分析可以详见模块<strong>commands.c</strong>部分。</p>
+
+<p>接着是<code>lxc_set_state</code>。它将STARTING的状态消息写入到另一个socket中。<code>lxc_set_state</code>的实现调用了monitor.c的<code>lxc_moitor_send_state</code>。对其分析可以参见<strong>monitor.c</strong>模块。</p>
+
+<p>接着是部分环境变量的设置：<code>LXC_NAME, LXC_CONFIG_FILE, LXC_ROOTFS_MOUNT, LXC_ROOTFS_PATH, LXC_CONSOLE, LXC_CONSOLE_LOGPATH</code>。</p>
+
+<p>接下来的四件事情：</p>
+
+<ol>
+<li>调用<code>run_lxc_hooks</code>运行pre-start的脚本。</li>
+<li>调用<code>lxc_create_tty</code>创建tty</li>
+<li>调用<code>lxc_create_console</code>创建console</li>
+<li>调用<code>setup_signal_fd</code>处理进程的信号响应</li>
+</ol>
+
+
+<p>我们来重点分析第二步和第三步</p>
+
+<h4>终端设备的创建</h4>
+
+<h5>1. tty</h5>
+
+<p><code>lxc_create_tty</code>通过调用openpty的命令来为container分配tty设备。conf->tty参数指定了要分配的tty的个数。conf->tty_info结构体用来存放分配好的tty的相关信息。</p>
+
+<p>如果conf->tty的值是4,那么lxc_create_tty执行完之后的结果是：</p>
+
+<pre><code>conf-&gt;tty_info-&gt;nb_tty: 4
+conf-&gt;tty_info-&gt;pty_info: 大小为4的类型为lxc_pty_info的数组的头指针
+</code></pre>
+
+<p>lxc_pty_info的定义如下：</p>
+
+<pre><code>struct lxc_pty_info {
+    char name[MAXPATHLEN];
+    int master;
+    int slave;
+    int busy;
+};
+</code></pre>
+
+<p><code>conf-&gt;tty_info-&gt;pty_info</code>的每一项都记录了一个新创建pty的信息，master表示pty master的句柄，slave表示slave的句柄，name表示pty slave的文件路径，即"/dev/pts/N"。</p>
+
+<h5>2. console</h5>
+
+<p><code>lxc_create_console</code>同样调用openpty用来创建console设备。创建好的console设备信息存放在类型为<code>lxc_cosnole</code>的结构体变量<code>conf-&gt;console</code>中。</p>
+
+<p>lxc_console的结构体定义如下：</p>
+
+<pre><code>struct lxc_console {
+    int slave;
+    int master;
+    int peer;
+    char *path;
+    char *log_path;
+    int log_fd;
+    char name[MAXPATHLEN];
+    struct termios *tios;
+};
+</code></pre>
+
+<p>各个参数的含义如下：</p>
+
+<ul>
+<li>slave 新创建pty的slave</li>
+<li>master 新创建pty的master</li>
+<li>path console文件路径，可以通过配置文件"lxc.console.path"或者命令行参数-c指定。默认为"/dev/tty"</li>
+<li>log_path console的日志路径</li>
+<li>peer 打开path, 返回句柄放入peer中。</li>
+<li>log_fd 打开log_path, 返回句柄放入log_fd中。</li>
+<li>name slave的路径。</li>
+<li>tios 存放tty旧的控制参数。</li>
+</ul>
+
+
+<h4>lxc_spawn</h4>
+
+<p>让我们继续回到<code>__lxc_start</code>的主流程。前面通过调用<code>lxc_init</code>初始化了一个lxc_handler的结构体handler，然后在主流程里，又将传入的ops参数和data参数赋值给了handler的ops字段和data字段。接着就以handler为参数，调用了<code>lxc_spawn</code>。</p>
+
+<p><code>lxc_spawn</code>是启动新的容器的核心。进程通过Linux系统调用clone创建了拥有自己的PID、IPC、文件系统等独立的命名空间的新进程。然后在新的进程中执行<code>/sbin/init</code>。接下来我们来看具体过程。</p>
+
+<ol>
+<li>首先调用<code>lxc_sync_init</code>来为将来父子进程同步做初始化。</li>
+<li><p>准备clone调用需要的flag。各个flags如下：</p></li>
+<li><p><code>CLONE_NEWUTS</code> 子进程指定了新的utsname，即新的“计算机名”</p></li>
+<li><code>CLONE_NEWPID</code> 子进程拥有了新的PID空间，clone出的子进程会变成1号进程</li>
+<li><code>CLONE_NEWIPC</code> 子进程位于新的IPC命名空间中。这样SYSTEM V的IPC对象和POSIX的消息队列看上去会独立于原系统。</li>
+<li><code>CLONE_NEWNS</code>  子进程会有新的挂载空间。</li>
+<li><p><code>CLONE_NEWNET</code> 如果配置文件中有关于网络的配置，则会增加该flag。它使得子进程有了新的网络设备的命名空间</p></li>
+<li><p>调用pin_rootfs。如果container的根文件系统是一个目录(而非独立的块设备)，则在container的根文件系统之外以可写权限打开一个文件。这样可以防止container在执行过程中将整个文件系统变成只读(原因很简单，因为已经有其他进程以读写模式打开一个文件了，所以设备是“可写忙”的。所以其他进程不能将文件系统重新挂载成只读)。</p></li>
+<li>调用lxc_clone，在新的命名空间中创建新的进程。</li>
+<li>父子进程协同工作，完成container的相关配置。</li>
+</ol>
+
+
+<p>我们先来看一下lxc_clone是如何创建新的进程的。</p>
+
+<h4>lxc_clone</h4>
+
+<p>该函数的原型如下：</p>
+
+<pre><code>pid_t lxc_clone(int (*fn)(void *), void *arg, int flags)
+</code></pre>
+
+<p>三个参数的含义如下：</p>
+
+<pre><code>fn: 子进程要执行的函数入口
+arg：fn的输入参数
+flags: clone的flags
+</code></pre>
+
+<p><code>lxc_clone</code>为clone api做了一个简单的封装，最后结果就是子进程会执行fn(arg)。在<code>lxc_spawn</code>处，<code>lxc_clone</code>是这样调用的：</p>
+
+<pre><code>handler-&gt;pid = lxc_clone(do_start, handler, handler-&gt;clone_flags)
+</code></pre>
+
+<p>所以lxc_clone执行完后，handler的pid字段会保留子进程的pid(注意不是“1”，是子进程调用getpid()会变成1)。父进程继续，子进程执行do_start。</p>
+
+<h4>父子进程同步</h4>
+
+<h5>同步机制</h5>
+
+<p>进程间同步的函数实现在sync.c中，其实现机制的分析可以见<strong>sync.c</strong>模块。这里只列举用于同步的函数：</p>
+
+<ul>
+<li><code>lxc_sync_barrier_parent/child(struct lxc_handler* handler, int sequence)</code> 发送sequence给parent/child,同时等待parent/child发送sequence+1的消息过来。</li>
+<li><code>lxc_sync_wait_parent/child(struct lxc_handler* handler, int sequence)</code> 等待parent/child发送sequence的消息过来。</li>
+</ul>
+
+
+<h5>同步完成配置的过程</h5>
+
+<ol>
+<li>父进程lxc_clone结束后，开始等待子进程发送<code>LXC_SYNC_CONFIGURE</code>的消息过来。此时，执行do_start的子进程完成了四件事情：
+
+<ol>
+<li>将信号处理表置为正常。</li>
+<li>通过prctl api，将子进程设置为“如果父进程退出，则子进程收到SIGKILL的消息”。</li>
+<li>关闭不需要的file handler</li>
+<li>发送<code>LXC_SYNC_CONFIGURE</code>给父进程，通知父进程可以开始配置。同时等待父进程发送配置完成的消息<code>LXC_SYNC_POST_CONFIGURE</code></li>
+</ol>
+</li>
+<li>受到子进程发送的<code>LXC_SYNC_CONFIGURE</code>的消息后，父进程继续执行。父进程执行的动作如下：
+
+<ol>
+<li>调用lxc_cgroup_path_create创建新的cgroup</li>
+<li>调用lxc_cgroup_enter将子进程加入到新的cgroup中。</li>
+<li>如果有新的网络命名空间，则调用lxc_assign_network为之分配设备</li>
+<li>如果有新的用户空间，如果配置了用户ids(包括uid，gid)映射，则做用户ids映射。该映射将container的id映射到了真正系统中一个不存在的id上，使得container可以在一个虚拟的id空间中做诸如“切换到root”之类的事情。详细讨论可参见模块<strong>相关配置</strong>。</li>
+<li>发送<code>LXC_SYNC_POST_CONFIGURE</code>给子进程，并等待子进程发送<code>LXC_SYNC_CGROUP</code>的消息</li>
+</ol>
+</li>
+<li>子进程收到<code>LXC_SYNC_POST_CONFIGURE</code>的消息被唤醒。完成如下动作：
+
+<ol>
+<li>如果id已被映射，则切换到root</li>
+<li>开始container的设置，调用lxc_setup。主要有utsname、ip、根文件系统、设备挂载、console和tty等终端设备的各个方面的配置。</li>
+<li>发送<code>LXC_SYNC_CGROUP</code>给父进程。并等待父进程发送<code>LXC_SYNC_CGROUP_POST</code>消息。</li>
+</ol>
+</li>
+<li>父进程被唤醒。根据配置文件中对CGROUP的相关配置，进行cgroup的设置。然后发送<code>LXC_SYNC_CGROUP_POST</code>给子进程。等待子进程发送<code>LXC_SYNC_CGROUP_POST+1</code>。</li>
+<li>子进程被唤醒。调用handler->ops->start函数。实际上是完成了对start.c中start函数的调用。该函数功能简单，基本就是通过exec执行了container的init程序，默认情况下为/sbin/init.</li>
+<li>子进程并没有给父进程返回<code>LXC_SYNC_CGROUP_POST+1</code>的消息，而是关掉了父子进程间的通信信道。这导致父进程被唤醒。被唤醒后，父进程完成了以下动作：
+
+<ol>
+<li>调用detect_shared_rootfs, 检测是否共享根文件系统，是的话卸载。</li>
+<li>修改子进程tty文件的用户ids</li>
+<li>执行handler->ops->post_start, 打印"XXX is started with pid XXX"字样。</li>
+</ol>
+</li>
+</ol>
+
+
+
+  
+</section>
+
+
+      </section>
+
+    <footer>
+      <p>Held by Arclab, Zhejiang University, China.</br>
+	 Contact us: leixu@zju.edu.cn
+	</p>
+      </footer> 
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><!--<![endif]-->
+  </body>
+</html>
+
+
+

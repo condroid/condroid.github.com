@@ -194,12 +194,11 @@ lxc_console的结构体定义如下：
 
 1. 首先调用``lxc_sync_init``来为将来父子进程同步做初始化。
 1. 准备clone调用需要的flag。各个flags如下：
-
- - ``CLONE_NEWUTS`` 子进程指定了新的utsname，即新的“计算机名”
- - ``CLONE_NEWPID`` 子进程拥有了新的PID空间，clone出的子进程会变成1号进程
- - ``CLONE_NEWIPC`` 子进程位于新的IPC命名空间中。这样SYSTEM V的IPC对象和POSIX的消息队列看上去会独立于原系统。
- - ``CLONE_NEWNS``  子进程会有新的挂载空间。
- - ``CLONE_NEWNET`` 如果配置文件中有关于网络的配置，则会增加该flag。它使得子进程有了新的网络设备的命名空间
+	- ``CLONE_NEWUTS`` 子进程指定了新的utsname，即新的“计算机名”
+	- ``CLONE_NEWPID`` 子进程拥有了新的PID空间，clone出的子进程会变成1号进程
+	- ``CLONE_NEWIPC`` 子进程位于新的IPC命名空间中。这样SYSTEM V的IPC对象和POSIX的消息队列看上去会独立于原系统。
+	- ``CLONE_NEWNS``  子进程会有新的挂载空间。
+	- ``CLONE_NEWNET`` 如果配置文件中有关于网络的配置，则会增加该flag。它使得子进程有了新的网络设备的命名空间
 1. 调用pin_rootfs。如果container的根文件系统是一个目录(而非独立的块设备)，则在container的根文件系统之外以可写权限打开一个文件。这样可以防止container在执行过程中将整个文件系统变成只读(原因很简单，因为已经有其他进程以读写模式打开一个文件了，所以设备是“可写忙”的。所以其他进程不能将文件系统重新挂载成只读)。
 1. 调用lxc_clone，在新的命名空间中创建新的进程。
 1. 父子进程协同工作，完成container的相关配置。
