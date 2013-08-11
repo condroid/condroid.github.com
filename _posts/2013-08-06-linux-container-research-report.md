@@ -1,12 +1,11 @@
 ---
 layout: post
 title: "Linux Container Research Report"
-description: ""
+description: "LXC代码阅读文档整理"
 category: 
 tags: []
 ---
 {% include JB/setup %}
-
 
 ## 1. 综述
 
@@ -53,7 +52,7 @@ confile.c的真正核心内容在与95行定义的一个结构体数组
     
     static struct lxc_config_t config[] = {
         { "lxc.arch",                 config_personality          },
-    	{ "lxc.pts",                  config_pts                  },
+        { "lxc.pts",                  config_pts                  },
     	{ "lxc.tty",                  config_tty                  },
     	{ "lxc.devttydir",            config_ttydir               },
         .....
@@ -245,11 +244,74 @@ lxc_console的结构体定义如下：
     1. 如果id已被映射，则切换到root
     2. 开始container的设置，调用lxc_setup。主要有utsname、ip、根文件系统、设备挂载、console和tty等终端设备的各个方面的配置。
     3. 发送``LXC_SYNC_CGROUP``给父进程。并等待父进程发送``LXC_SYNC_CGROUP_POST``消息。
-1. 父进程被唤醒。根据配置文件中对CGROUP的相关配置，进行cgroup的设置。然后发送``LXC_SYNC_CGROUP_POST``给子进程。等待子进程发送``LXC_SYNC_CGROUP_POST+1``。
+1. 父进程被唤醒。根据配置文件中对CGROUP的相关配置，调用setup_cgroup进行cgroup的设置。然后发送``LXC_SYNC_CGROUP_POST``给子进程。等待子进程发送``LXC_SYNC_CGROUP_POST+1``。
 1. 子进程被唤醒。调用handler->ops->start函数。实际上是完成了对start.c中start函数的调用。该函数功能简单，基本就是通过exec执行了container的init程序，默认情况下为/sbin/init.
 1. 子进程并没有给父进程返回``LXC_SYNC_CGROUP_POST+1``的消息，而是关掉了父子进程间的通信信道。这导致父进程被唤醒。被唤醒后，父进程完成了以下动作：
     1. 调用detect_shared_rootfs, 检测是否共享根文件系统，是的话卸载。
     2. 修改子进程tty文件的用户ids
     3. 执行handler->ops->post_start, 打印"XXX is started with pid XXX"字样。
 
+#### 相关配置
+在这一部分中，我们针对前面讲的父子进程的同步配置过程来对部分重要的函数做分析。
+
+##### lxc_cgroup_path_create和lxc_cgroup_enter
+函数定义在cgroup.c中。原型如下：
+    
+    char* lxc_cgroup_path_create(const char* lxcgroup, const char* name)
+    int lxc_cgroup_enter(const char* cgpath, pid_t pid)
+    
+lxc_cgroup_path_create函数的作用是在cgroup各个已挂载使用的子系统的挂载点上为新创建的container新建一个文件夹。lxc_cgroup_enter的作用是把新创建的container加入到group cgpath中。
+
+下面我们来举例说明：
+比如挂载的子系统有blkio和cpuset，他们的挂载点分别是/cgroup/blkio和/cgroup/cpuset。
+
+lxc_cgroup_path_create函数运行结束后，则会多出两个目录/cgroup/blkio/lxcgroup/name和/cgroup/cpuset/lxcgroup/name。如果传入参数lxcgroup为空，则会使用“lxc”。函数的返回值是新创建目录的相对路径。即“lxcgroup/name”。
+
+lxc_cgroup_enter函数结束后，进程号"pid"会被追加到文件/cgroup/blkio/lxcgroup/name/tasks和/cgrop/cpuset/lxcgroup/name/tasks中。在lxc_spawn中，pid的实参用的是handler->pid，即clone出的子进程的id。
+
+通过查看/proc/mounts查看cgroup的挂载点。通过查看/proc/cgroups查看正挂载使用的子系统。
+
+##### id映射
+查看confile.c下的config_idmap函数，可知在container配置文件中可以通过lxc.id_map来设置id映射。格式如下：
+
+	lxc.id_map = u/g id_inside_ns id_outside_ns range
+
+其中，u/g指定了是uid还是gid。后三个选项表示container中的[id_inside_ns, id_inside_ns+range)会被映射到真实系统中的
+[id_outside_ns, id_outside_ns+range)。
+
+在config_idmap执行后，配置文件中的配置条目被作为链表存放到conf->id_map字段下。在lxc_spawn中，通过调用lxc_map_ids函数来完成配置。
+
+lxc_map_ids的实现在conf.c中，原型如下：
+	
+	int lxc_map_ids(struct lxc_list *idmap, pid_t pid)
+
+第一个参数idmap为配置信息的链表，pid为新clone出的子进程的pid。lxc_map_ids的基本过程比较简单，就是将以u开头的配置项写入到文件/proc/pid/uid_map中，将以g开头的配置项写入到文件/proc/pid/gid_map中。
+
+id映射是clone在flag CLONE_NEWUSER时指定的一个namespace特性。有关id映射可以参见[此处](http://lwn.net/Articles/532593/)。
+
+##### lxc_setup
+子进程do_start中调用的lxc_setup是一个非常重要的函数。container里面的很多配置都是在lxc_setup中完成的。这里重点分析setup_console和setup_tty两个函数，来查看比较困扰的终端字符设备是如何虚拟的。
+
+setup_console的实现在conf.c中，函数原型如下：
+
+	int setup_console(const struct lxc_rootfs *rootfs, const struct lxc_console *console, 
+			char *ttydir)
+
+rootf变量描述了container根文件系统的路径和挂载点。console变量描述了container的console设备的相关信息。在do_start的调用中，传来的实参是lxc_conf->console,这个字段是我们在lxc_init时初始化的。回顾当时的初始化过程：
+
+ - console->slave和console->master分别存储了新分配的pty的slave和master的句柄。
+ - console->peer存储了打开原系统"/dev/tty"的句柄。
+ - console->name指向了新分配pty的文件路径
+
+setup_console根据ttydir的值，分支调用了setup_dev_console或者setup_ttydir_console。我们只看setup_dev_console来了解原理。
+
+在setup_dev_console中，主要动作就是将console->name指向的pty通过BIND的方式挂载到rootfs/dev/console文件中。可以看出，我们对container /dev/console的访问，实质上是对新分配pty的访问。
+
+setup_tty的过程与此类似，在rootfs/dev/目录下创建tty1, tty2等常规文件，然后用BIND的方式将新创建的pty挂载到其上。
+
+##### setup_cgroup
+显然，container无法访问原来的cgroup根文件系统，所以这个任务只能由父进程在lxc_spawn中调用。该函数实现比较简单，根据config文件中的配置条目，将对应的value值写入到对应的cgroup文件中。
+
+#### 剩下的事情
+主进程陷入等待。子进程开始运行。
 
