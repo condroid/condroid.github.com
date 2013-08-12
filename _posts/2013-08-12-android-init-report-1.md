@@ -424,7 +424,6 @@ libc库要用到的全局变量`__system_property_area__`的值就被赋成上�
 该函数分两种情况处理传进来的字符串。
 
  1. 不再模拟器中时，解析字符串，赋值给`qemu`,`console`等`/init`的全局变量。  
-
  2. 在模拟器中时，则给字符串添加`ro.kernel.`的前缀，然后添加到`property system`中。
 
 ####函数`export_kernel_boot_props`(在/system/core/init/init.c中)####
