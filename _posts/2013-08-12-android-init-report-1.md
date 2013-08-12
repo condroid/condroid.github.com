@@ -181,9 +181,7 @@ tags: []
 #### 3.2.3函数`property_init`####
 
  - `property_init`是`init_property_area`的**wrapper**函数
-
  - `init_property_area`调用`init_workspace`函数并给**libc**中的`__system_property_area__`赋值  
-
 
 ####函数`init_workspace`####
 
