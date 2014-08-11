@@ -19,5 +19,5 @@ Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization so
 
 *Visit the homepage of [Architecture Lab of Zhejiang University(ARC)](http://arc.zju.edu.cn/new/index)
 
-*Know the [specific steps]()
+*Know the [specific steps](https://github.com/condroid/condroid.github.com/blob/master/_posts/steps.md)
 
