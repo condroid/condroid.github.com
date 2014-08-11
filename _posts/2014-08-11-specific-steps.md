@@ -102,7 +102,6 @@ export PATH=/system/local/bin:$PATH
 
 	mkdir -p /dev/shm
 	mount -t tmpfs -o nodev,noexec tmpfs /dev/shm
-## Run Android JellyBean container
-**(1) **
 
-testing......
+
+## Run Android JellyBean container
