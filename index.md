@@ -13,10 +13,10 @@ Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization so
 （3)ADB 
 
 ##Some useful hot-links
-*[Download the source code](https://github.com/condroid/source-code)
+* [Download the source code](https://github.com/condroid/source-code)
 
-*[Documention](http://condroid.github.io/docs.html)
+* [Documention](http://condroid.github.io/docs.html)
 
-*Visit the homepage of [Architecture Lab of Zhejiang University(ARC)](http://arc.zju.edu.cn/new/index)
+* Visit the homepage of [Architecture Lab of Zhejiang University(ARC)](http://arc.zju.edu.cn/new/index)
 
 

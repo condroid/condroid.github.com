@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Android Binder Mechnism Report"
+title: "Android Binder Mechanism Report"
 description: ""
 category: 
 tags: []
