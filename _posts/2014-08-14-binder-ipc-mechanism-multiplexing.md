@@ -7,19 +7,20 @@ tags: []
 ---
 {% include JB/setup %}
 
-所谓复用Binder IPC机制，是指Binder IPC机制的核心组件（如Binder设备驱动、Service Manager）由主机提供，虚拟机则没有这些组件，虚拟机中的进程通过一个虚拟设备间接地使用主机提供Binder IPC机制。
+所谓复用Binder IPC机制，是指Binder IPC机制的核心组件(如Binder设备驱动、Service Manager)由主机提供。虚拟机没有这些组件，虚拟机中的进程通过一个虚拟设备间接地使用主机提供Binder IPC机制。
 
-为了更好地实现虚拟机使用主机提供的Binder IPC机制，在安全和性能之间找到一个平衡点。我们在虚拟机中使用虚拟Binder设备而非实际的Binder设备。
+虚拟机更好地使用主机提供的Binder IPC机制，在安全和性能之间找到一个平衡点。我们在虚拟机中使用虚拟Binder设备而非实际的Binder设备。
 
 ###技术方案
 **1.构建虚拟Binder设备驱动**
-我们在Android系统的Linux内核中添加了虚拟Binder设备的驱动程序，这个驱动程序的主要功能在于以下两个方面：
 
-(1).调用Binder设备驱动的函数，将应用程序对虚拟Binder设备的操作（如open, ioctl, mmap等）转发给真实的Binder设备驱动。
+我们在Android系统的Linux内核中添加了虚拟Binder设备的驱动程序，这个驱动程序的主要功能有以下两个方面：
 
-(2).拦截应用程序对虚拟Binder设备的ioctl操作，过滤出发送给Service Manager的注册服务（由服务进程发起）和获取服务（由客户端进程发起）的请求，并且在转发给真实Binder设备之前使用一个转换函数f修改这两种请求中的服务名字段。
+(1)调用Binder设备驱动的函数，将应用程序对虚拟Binder设备的操作（如open, ioctl, mmap等）转发给真实的Binder设备驱动。
 
-转发设备操作使得虚拟Binder设备具有与真实Binder设备相同的功能。修改注册服务请求实现了不同的虚拟机中运行的同名服务以不同的名字注册到主机的Service Manager中，解决名字冲突的问题。修改获取服务请求使得虚拟机中运行的客户端进程能够获取到与其运行在同一虚拟机中的服务，解决运行在不同虚拟机的同名服务之间无法区分的问题。
+(2)拦截应用程序对虚拟Binder设备的ioctl操作，过滤出发送给Service Manager的注册服务（由服务进程发起）和获取服务（由客户端进程发起）的请求，并且在转发给真实Binder设备之前使用一个转换函数 f 修改这两种请求中的服务名字段。
+
+转发设备操作使得虚拟Binder设备具有与真实Binder设备相同的功能。修改注册服务请求，使不同的虚拟机中运行的同名服务以不同的名字注册到主机的Service Manager中，解决名字冲突的问题。修改获取服务请求使得虚拟机中运行的客户端进程能够获取到与其运行在同一虚拟机中的服务，解决运行在不同虚拟机的同名服务之间无法区分的问题。
 
 **2.创建和分配虚拟Binder设备**
 
@@ -31,6 +32,8 @@ tags: []
 
 ###具体实施方法
 **1.构建虚拟Binder设备驱动**
+
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png)  
 
 虚拟Binder设备驱动主要负责拦截、过滤和修改进程对Binder设备的各种操作，然后将操作请求转发给真实的Binder设备驱动。该驱动按照misc设备驱动的模型编写，代码存放在conbinder.c中。首先需要创建一个struct file_operations类型的结构体变量conbinder_fops，这个结构体中的函数指针与虚拟Binder设备的各种操作一一对应。我们对于需要拦截的操作编写自定义的驱动函数，对于不需要拦截的操作则直接使用真实Binder设备驱动中的函数。这些函数的实现方式如下表所示：
 
@@ -89,7 +92,7 @@ tags: []
 
 **2.创建和分配虚拟Binder设备**
 
-![](http://hi.csdn.net/attachment/201107/19/0_13110996490rZN.gif)  
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png)  
 
 为了使内核启动完成之后创建一组虚拟Binder设备，我们编写了conbinder_init函数用于初始化虚拟Binder设备的信息以及注册这些设备。首先我们定义了一组struct miscdevice类型的结构体，然后在conbinder_init函数中调用init_devs函数初始化这些结构体，初始化过程包括设定其minor（次设备号）、name（设备名称）和fops（各设备操作对应的函数指针）三个字段，不同结构体的name字段不同（包含各虚拟Binder设备的编号），其它字段相同。fops字段设定为虚拟Binder设备驱动中的conbinder_fops结构体的地址。初始化完成之后conbinder_init函数继续调用register_devs，后者循环调用misc_register函数将之前初始化好的虚拟Binder设备注册到内核中。这样，内核启动完成之后会在/dev目录下创建以设备名称命名的虚拟Binder设备文件。通过在mount命令中使用bind选项可以将这些设备文件与虚拟机根文件系统中的/dev/binder文件绑定，从而将其分配给虚拟机。虚拟机中的应用程序访问Binder设备时，内核将执行虚拟Binder设备驱动程序中的函数。
 
