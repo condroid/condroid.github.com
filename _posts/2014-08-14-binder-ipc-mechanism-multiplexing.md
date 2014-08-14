@@ -115,4 +115,5 @@ tags: []
 为了实现服务共享的功能，我们在虚拟Binder设备的驱动程序中设置了一个白名单。如果拦截到的某个请求中的服务名字属于这个白名单，那么该请求将不会被修改。这样，虚拟机中不需要运行白名单中的服务，虚拟机中的客户端进程向Service Manager请求白名单中的某个服务时，Service Manager返回的将是主机中运行的服务。因此，白名单中的服务只需在主机中运行，被主机以及所有虚拟机中的客户端进程所共享。本发明中这个白名单即设置为services_tree这棵红黑树。虚拟Binder设备的驱动程序在修改请求中的服务名字之前会在services_tree中查找该服务名字，如果未找到则继续修改，如果找到则放弃修改。
 
 ###总体框架图
+
 ![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder3.png?raw=true)
