@@ -33,7 +33,7 @@ tags: []
 ###具体实施方法
 **1.构建虚拟Binder设备驱动**
 
-![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png)  
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png?raw=true)  
 
 虚拟Binder设备驱动主要负责拦截、过滤和修改进程对Binder设备的各种操作，然后将操作请求转发给真实的Binder设备驱动。该驱动按照misc设备驱动的模型编写，代码存放在conbinder.c中。首先需要创建一个struct file_operations类型的结构体变量conbinder_fops，这个结构体中的函数指针与虚拟Binder设备的各种操作一一对应。我们对于需要拦截的操作编写自定义的驱动函数，对于不需要拦截的操作则直接使用真实Binder设备驱动中的函数。这些函数的实现方式如下表所示：
 
@@ -92,7 +92,7 @@ tags: []
 
 **2.创建和分配虚拟Binder设备**
 
-![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png)  
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png?raw=true)  
 
 为了使内核启动完成之后创建一组虚拟Binder设备，我们编写了conbinder_init函数用于初始化虚拟Binder设备的信息以及注册这些设备。首先我们定义了一组struct miscdevice类型的结构体，然后在conbinder_init函数中调用init_devs函数初始化这些结构体，初始化过程包括设定其minor（次设备号）、name（设备名称）和fops（各设备操作对应的函数指针）三个字段，不同结构体的name字段不同（包含各虚拟Binder设备的编号），其它字段相同。fops字段设定为虚拟Binder设备驱动中的conbinder_fops结构体的地址。初始化完成之后conbinder_init函数继续调用register_devs，后者循环调用misc_register函数将之前初始化好的虚拟Binder设备注册到内核中。这样，内核启动完成之后会在/dev目录下创建以设备名称命名的虚拟Binder设备文件。通过在mount命令中使用bind选项可以将这些设备文件与虚拟机根文件系统中的/dev/binder文件绑定，从而将其分配给虚拟机。虚拟机中的应用程序访问Binder设备时，内核将执行虚拟Binder设备驱动程序中的函数。
 
@@ -113,3 +113,6 @@ tags: []
 (4).实现服务共享：
 
 为了实现服务共享的功能，我们在虚拟Binder设备的驱动程序中设置了一个白名单。如果拦截到的某个请求中的服务名字属于这个白名单，那么该请求将不会被修改。这样，虚拟机中不需要运行白名单中的服务，虚拟机中的客户端进程向Service Manager请求白名单中的某个服务时，Service Manager返回的将是主机中运行的服务。因此，白名单中的服务只需在主机中运行，被主机以及所有虚拟机中的客户端进程所共享。本发明中这个白名单即设置为services_tree这棵红黑树。虚拟Binder设备的驱动程序在修改请求中的服务名字之前会在services_tree中查找该服务名字，如果未找到则继续修改，如果找到则放弃修改。
+
+###总体框架图
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder3.png?raw=true)
