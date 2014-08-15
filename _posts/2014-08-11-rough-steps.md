@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Specific steps"
+title: "Rough steps"
 description: ""
 category: 
 tags: []
