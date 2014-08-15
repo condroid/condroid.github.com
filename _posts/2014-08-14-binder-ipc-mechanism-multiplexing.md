@@ -33,8 +33,6 @@ tags: []
 ###具体实施方法
 **1.构建虚拟Binder设备驱动**
 
-![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png?raw=true)  
-
 虚拟Binder设备驱动主要负责拦截、过滤和修改进程对Binder设备的各种操作，然后将操作请求转发给真实的Binder设备驱动。该驱动按照misc设备驱动的模型编写，代码存放在conbinder.c中。首先需要创建一个struct file_operations类型的结构体变量conbinder_fops，这个结构体中的函数指针与虚拟Binder设备的各种操作一一对应。我们对于需要拦截的操作编写自定义的驱动函数，对于不需要拦截的操作则直接使用真实Binder设备驱动中的函数。这些函数的实现方式如下表所示：
 
 <table>
@@ -98,22 +96,28 @@ tags: []
 
 **3.构建共享服务列表配置接口**
 
-(1).在proc文件系统中创建文件：
+(1)在proc文件系统中创建文件：
 
 本发明中的共享服务列表配置接口借助proc文件系统实现。我们在conbinder_init函数中添加代码，先调用proc_mkdir函数在/proc目录下创建一个目录，然后调用create_proc_entry在该目录中创建一个名为sharedservices的文件，接着创建两个函数conbinder_proc_ss_read和conbinder_proc_ss_write并将它们分别设定为sharedservices文件的读、写回调函数。
 
-(2).定义共享服务列表的数据结构：
+(2)定义共享服务列表的数据结构：
 
 文件创建成功之后我们在内核中分配一块内存用于存储写入sharedservices文件的数据，然后创建一棵红黑树services_tree用于索引该文件中存储的共享服务名。
 
-(3).实现共享服务列表的读写：
+(3)实现共享服务列表的读写：
 
 当用户将共享服务名写入sharedservices文件时，内核将调用conbinder_proc_ss_write函数。该函数首先接收到的数据存储到之前分配的内存块中，然后将数据中包含的服务名字插入services_tree中。当用户读取sharedservices文件时，内核将调用conbinder_proc_ss_read函数，该函数读取内存块中的数据并返回给上层。
 
-(4).实现服务共享：
+(4)实现服务共享：
 
 为了实现服务共享的功能，我们在虚拟Binder设备的驱动程序中设置了一个白名单。如果拦截到的某个请求中的服务名字属于这个白名单，那么该请求将不会被修改。这样，虚拟机中不需要运行白名单中的服务，虚拟机中的客户端进程向Service Manager请求白名单中的某个服务时，Service Manager返回的将是主机中运行的服务。因此，白名单中的服务只需在主机中运行，被主机以及所有虚拟机中的客户端进程所共享。本发明中这个白名单即设置为services_tree这棵红黑树。虚拟Binder设备的驱动程序在修改请求中的服务名字之前会在services_tree中查找该服务名字，如果未找到则继续修改，如果找到则放弃修改。
 
-###总体框架图
+###相关参考图
+- ***总体框架图***
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder1.png?raw=true)
+
+
+
+- ***服务注册图***
 
 ![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder3.png?raw=true)
