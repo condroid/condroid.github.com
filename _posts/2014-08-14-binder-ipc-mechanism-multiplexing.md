@@ -119,5 +119,4 @@ tags: []
 
 
 - ***服务注册图***
-
 ![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder3.png?raw=true)
