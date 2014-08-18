@@ -22,7 +22,7 @@ tags: []
 
 ### *切换解决方案*
 ### 1. 为WMS添加ContainerThread
-- ContainerThread代码位于`frameworks/base/services/java/com/android/server/wm/WindowManagerService.java`，是一个线程类
+- ContainerThread代码位于 `frameworks/base/services/java/com/android/server/wm/WindowManagerService.java` ，是一个线程类
 - ContainerThread创建时会调用`Container.registerContainer()`注册当前的Container
 - ContainerThread线程运行时调用`Container.waitingForNewPosition()`等待当前Container的位置发生改变
 - 当当前Container的位置发生变化时ContainerThread会发送一个消息给ContainerHandler
