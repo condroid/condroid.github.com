@@ -48,6 +48,7 @@ Java接口为android.util.Container类，源代码位于`/frameworks/base/core/j
 6. `int waitForNewPosition(int container)`：调用后当前线程进入睡眠状态，直到指定的Container的位置被改变，返回该Container的新位置
 7. `int registerCurrentContainer()`：注册当前进程所在的Container
 
+
 ## Container的切换
 
 ### IContainerManager
@@ -88,3 +89,8 @@ Java接口为android.util.Container类，源代码位于`/frameworks/base/core/j
 4. Java接口通过JNI调用C++接口，即libcontainer.so中Container类的`setFrontContainer(int)`函数
 5. C++接口通过打开/dev/container设备，并对其进行`ioctl(CONTAINER_SET_FRONT_ID)`操作
 6. container设备驱动接收到ioctl请求后更改container列表中各container的顺序，使得目标container位于最上层
+
+
+##相关参考图##
+
+![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140818container1.png?raw=true)  
