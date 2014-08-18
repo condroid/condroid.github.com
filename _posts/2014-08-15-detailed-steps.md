@@ -7,7 +7,7 @@ tags: []
 ---
 {% include JB/setup %}
 
-##Step I  :编译Android内核##
+##Step I  :Compile Android Kernel##
 1. 下载源代码。这里的kernel子项目中有各个设备对应的kernel源代码：
 	
 		https://android.googlesource.com
@@ -41,7 +41,7 @@ tags: []
 		刷入
     - 方法二：将编译好的kernel copy到out/x/x/x/目录，命名为kernel，然后m制作boot.img，用fastboot刷入
 
-##Step II :编译Android源代码##
+##Step II :Compile Android Source Code##
 1. 下载源代码。这里可以查到设备支持的Android版本：
 
 		https://developers.google.com/android/nexus/drivers
@@ -78,8 +78,8 @@ tags: []
 	    $ fastboot devices
 	    $ fastboot flashall -w
 
-##Step III :内核修改##
-### conbinder驱动
+##Step III :Kernel Modification##
+### Conbinder Driver
 1. 进入`drivers/staging/android/`目录
 2. 创建`conbinder.h`和`conbinder.c`
 3. 将`binder.c`中的头文件移到`conbinder.h`中，然后`include "conbinder.h"`
@@ -91,7 +91,7 @@ tags: []
 9. 修改`Makefile`，增加`conbinder.o`的编译配置
 
 
-### conalarm驱动
+### Conalarm Driver
 1. 进入`drivers/rtc/`目录
 2. 修改`alarm-dev.c`，增加`conalarm_fops`和`conalarm_device`数据结构以及初始化代码，并且自定义`conalarm_open`函数
 3. 将`conalarm`相关代码是否编译用宏定义`ANDROID_CONALARM`控制
@@ -99,7 +99,7 @@ tags: []
 5. 修改`Makefile`，增加`ANDROID_CONALARM`宏定义的编译配置（`ccflags`）
 
 
-### container驱动
+### Container Driver
 1. 进入`drivers/staging/android/`目录
 2. 创建`container.h`和`container.c`
 3. 在`container.h`中添加各`ioctl`命令的宏定义
@@ -108,7 +108,7 @@ tags: []
 6. 修改`Makefile`，增加`container.o`的编译配置
 
 
-### 编译配置
+### Compile Configuration
 1. 修改`.config`，增加以下配置选项
 	
 		ANDROID_CONBINDER_IPC
@@ -119,13 +119,13 @@ tags: []
 2. 根据`lxc-checkconfig`的要求增加编译配置选项		
 3. `按照Step II`编译
 
-##Step IV :ramdisk修改##
+##Step IV :ramdisk modification##
 ### init.rc
-1. 去掉  
+1. remove  
 	
 		mount rootfs rootfs / ro remount
 
-2. 添加
+2. add
 	
 		mount tmpfs tmpfs /run
 		symlink /system/bin /bin
@@ -138,49 +138,49 @@ tags: []
 	
 		:/system/local/lib
 
-5. 添加
+5. add
 	
 		export ANDROID_CT /system/local/var/lib/lxc/android4.x.x
 
 
 ### uevent.rc
-1. 添加
+1. add
 	
 		/dev/conbinder1			0666	root		root
 		...
 		/dev/conbinder9			0666	root		root
-2. 添加
+2. add
 	
 		/dev/conalarm           0664   system     radio
 
-3. 添加
+3. add
 	
 		/dev/container          0666	root		root
 
-##Step V ：lxc修改和编译##
+##Step V ：LXC Modification and Compilation##
 ### 代码修改
 
 1. 使用chroot代替pivot_root系统调用
 
 ### 交叉编译lxc
 
-1. 下载Android NDK
+1. Download Android NDK
 2. 解压NDK之后在其中执行
 	
 		$ build/tools/make-standalone-toolchain.sh
 	然后在/tmp目录中找到tool chain
 3. 添加tool chain目录到PATH环境变量
 
-4. 下载`lxc-1.0.0.alpha*`源代码
+4. Download `lxc-1.0.0.alpha*` source code
 
-5. 在lxc源代码中执行
+5. Execute in lxc source code
 	
 		$ autogen.sh
-6. 执行
+6. Execute
 	
 		$ ./configure --host=arm-linux-androideabi --prefix=/system/local CC=arm-linux-androideabi-gcc --disable-capabilities
-7. 执行make，忽略lua相关的错误
-8. 执行
+7. Execute 'make'，忽略lua相关的错误
+8. Execute
 	
 		$ sudo make prefix=/system/local install
 	在`/system/local`下面可以找到编译好的程序
@@ -264,7 +264,7 @@ tags: []
 		vendor				copy
 		xbin				copy
 
-### 其它脚本
+### Other Script
 1. 在android4.x.x目录下创建脚本文件mount-bind.sh，输入以下命令
 	
 		mount -o bind /system/app rootfs/system/app
