@@ -10,85 +10,85 @@ tags: []
 ## /dev/container device ##
 
 ### Device Drive
-- /dev/container设备是一个虚拟设备，设备驱动代码位于内核`drivers/staging/android/container.c`
-- container设备提供container的注册（表示已经启动）和切换的功能
-- 通过对该设备进行ioctl操作可以完成指定的功能
+- /dev/container device is a virtual one,device driver code is in `drivers/staging/android/container.c` in kernel
+- Container device provide the function of register and switch for container
+- By ioctl operating on the device,we can finish specified function
 
 ### ioctl Operation
-1. `CONTAINER_REGISTER`：参数为指向一个int的指针，用于注册该指针指向的Container的ID
-2. `CONTAINER_GET_FRONT_ID`：参数为一个指向int的指针，调用后会写入当前活动的Container的ID
-3. `CONTAINER_GET_STACK_POS`：参数为一个指向int的指针，调用前应填入需要获取位置的Container的ID，调用后会写入该Container在栈中的位置
-4. `CONTAINER_SET_FRONT_ID`：参数为一个指向int的指针，用于将该指针指向的Container ID设置为活动的Container
-5. `CONTAINER_WAIT_FOR_NEW_POS`：参数为一个指向int的指针，调用前应填入需要等待位置的Container的ID，调用后会写入该Container的新位置
+1. `CONTAINER_REGISTER`:its parameter is a pointer to int;to register the container's ID to which the pointer points
+2. `CONTAINER_GET_FRONT_ID`:parameter is a pointer to int;to write in running container's ID
+3. `CONTAINER_GET_STACK_POS`:parameter is a pointer to int;to write in container's ID which need get position before calling;to write in the container's position in stack after calling
+4. `CONTAINER_SET_FRONT_ID`:parameter is a pointer to int;to set the container's ID to which the pointer points active
+5. `CONTAINER_WAIT_FOR_NEW_POS`:parameter is a pointer to int;to write in container's ID which need wait for position before calling;to write in the container's new position after calling
 
 
 ## The Interface of Container
 
 ### C++ Interface
-- C++层和Java层都对container设备的访问接口进行了封装  
-- C++层的封装代码位于`frameworks/native/libs/container/Container.cpp`，编译生成`libcontainer.so`，接口定义如下：
+- C++ layer and Java layer encapsulate the access interface of container device
+- C++ layer's encapsulation code is in `frameworks/native/libs/container/Container.cpp`;it generates `libcontainer.so` from compilation；the definition of interface is as follow:
 	
-		int getCurrentContainer(void)					获取当前进程所在的Container号
-    	int registerContainer(int container)			注册一个Container号
-	    int getFrontContainer(void)						获取前台的Container号
-	    int isCurrentContainerTheFront(void)			判断当前Container是不是在前台
-	    int getContainerPosition(int container)			获取Container在栈中的位置
-	    int setFrontContainer(int container)			设置某个Container为前台的Container
-	    int waitForNewPosition(int container)			使当前进入睡眠状态，直到指定的Container位置发生改变
-		int getAvailableContainers(int containers[])	获取当前正在运行的所有Container的ID
+		int getCurrentContainer(void)					get container's ID in which current process is
+    	int registerContainer(int container)			register a container's ID
+	    int getFrontContainer(void)						judge the container's ID in front
+	    int isCurrentContainerTheFront(void)			judge the container's ID if is in front
+	    int getContainerPosition(int container)			get the container's position in stack
+	    int setFrontContainer(int container)			set a container in front
+	    int waitForNewPosition(int container)			make current process sleep until specified container's position changes
+		int getAvailableContainers(int containers[])	get all running containers' ID
 
 ### Java Interface
-Java接口为android.util.Container类，源代码位于`/frameworks/base/core/java/android/util/Container.java`，通过JNI（代码位于`/frameworks/base/core/jni/android_util_Container.cpp`）访问C++接口
+Java Interface is a kind of android.util.Container class;its source code is in `/frameworks/base/core/java/android/util/Container.java`;it accesses C++ Interface by JNI（its code is in `/frameworks/base/core/jni/android_util_Container.cpp`）
 
-1. `int getCurrentContainer()`：返回当前进程所在的Container的ID
-2. `int registerContainer(int container)`：注册一个Container ID，即通知内核该Container已经启动
-3. `int getFrontContainer()`：返回当前活动的Container
-4. `int setFrontContainer(int container)`：设置某个Container为活跃的Container
-5. `int getContainerPosition(int container)`：获取某个Container的位置
-6. `int waitForNewPosition(int container)`：调用后当前线程进入睡眠状态，直到指定的Container的位置被改变，返回该Container的新位置
-7. `int registerCurrentContainer()`：注册当前进程所在的Container
+1. `int getCurrentContainer()`:return the ID of container in which current process is
+2. `int registerContainer(int container)`:register a container ID to tell kernel the container has started
+3. `int getFrontContainer()`:return the present active container
+4. `int setFrontContainer(int container)`:set a container active
+5. `int getContainerPosition(int container)`:get the position of a container
+6. `int waitForNewPosition(int container)`:current process stay sleep after calling;until specified container's position changes,it'll return the container's new position
+7. `int registerCurrentContainer()`:register the container in which current process is
 
 
 ## Container Switch
 
 ### IContainerManager
-- IContainerManager是一个进程间通信的接口，定义了App与ContainerManagerService的通信协议，定义位于`frameworks/base/core/java/android/util/IContainerManager.aidl`
-- IContainerManager定义的函数如下：
+- IContainerManager is a interface of inter-process communication,which defines the communication protocol between App and ContainerMana;and the definition is in `frameworks/base/core/java/android/util/IContainerManager.aidl`
+- Functions which IContainerManager defines as follow:
 	
-		int switchToContainer(int container)	切换到指定的container
-    	int getCurrentContainer()				获取当前进程所在的container
-    	int getFrontContainer()					获取前台的container
-    	boolean isCurrentContainerInFront()		判断当前进程所在的container是否在前台
-    	int[] getAvailableContainers()			获取当前正在运行的所有container
+		int switchToContainer(int container)	switch to specified container
+    	int getCurrentContainer()				get container in which current process is
+    	int getFrontContainer()					get the front-end container
+    	boolean isCurrentContainerInFront()		judge the container in which current process is if front-end
+    	int[] getAvailableContainers()			get all running containers
 
 #### Modified files
-- `/frameworks/base/core/java/android/util/IContainerManager.aidl`，文件添加
-- `/frameworks/base/Android.mk`，中的`src_files`中添加，`/frameworks/base/core/java/android/util/IContainerManager.aidl`，这一行文字，如果希望该接口在sdk中开放，就在下面的aidl_files中也添加。
+- Add file `/frameworks/base/core/java/android/util/IContainerManager.aidl`
+- In `/frameworks/base/Android.mk`,`src_files` add line `/frameworks/base/core/java/android/util/IContainerManager.aidl`;if you hope the interface is open for sdk，add it in following file `aidl_files`
 
 ### ContainerManagerService
-- CMS是一个服务，服务名为“container”，它实现了IContainerManager定义的所有功能，代码位于`frameworks/base/services/java/com/android/server/ContainerManagerService.java`
-- CMS由SystemServer启动，在每个Container中都有
-- 客户端可以通过Binder机制对CMS发起远程调用
+- CMS is a service,whose name is "container";it realized all functions IContainerManager defines,AMS's code is in `frameworks/base/services/java/com/android/server/ContainerManagerService.java`
+- CMS is started by SystemServer,and consists in every container
+- Client can  make remote calls to CMS by Binder mechanism
 
 #### Modified files
-- `/frameworks/base/services/java/com/android/server/ContainerManagerService.java`,直接添加
-- `/frameworks/base/servcies/java/com/android/server/SystemServer.java`,添加对ContainerManager的实例化和调用
-- 对该目录修改会生成`system/frameworks/services.jar`
+- Add file `/frameworks/base/services/java/com/android/server/ContainerManagerService.java`
+- `/frameworks/base/servcies/java/com/android/server/SystemServer.java`,add instantiation and call to ContainerManager
+- Modify this catalogue and it will generate `system/frameworks/services.jar`
 
 ### ContainerManager SDK
-- ContainerManager是CMS的客户端，代码位于development/containermanager，编译生成的jar包位于
+- ContainerManager is a client of CMS;its code is in development/contain and it generates ermanager;generated jar package from compilation is in
 		
 		out/target/common/obj/JAVA_LIBRARIES/containermanager_intermediates/classes.jar
-- ContainerManager通过远程调用CMS的接口函数来实现Container的查看和管理
-- ContainerManager属于Android SDK的一部分，在App中调用ContainerManager的相关函数即可访问CMS提供的接口
+- ContainerManager realize the check and management by remote calls to CMS's interface function
+- ContainerManager belongs to Android SDK;it calls relevant functions in App to access interfaces CMS provides
 
 ### Container Switchover Process
-1. 应用程序调用ContainerManager类的切换函数`switchToContainer(int)`
-2. ContainerManager类通过Binder机制远程调用ContainerManagerService的`switchToContainer(int)`接口
-3. ContainerManagerService调用container设备的Java接口，即`android.util.Container`类的`setFrontContainer(int)`函数
-4. Java接口通过JNI调用C++接口，即libcontainer.so中Container类的`setFrontContainer(int)`函数
-5. C++接口通过打开/dev/container设备，并对其进行`ioctl(CONTAINER_SET_FRONT_ID)`操作
-6. container设备驱动接收到ioctl请求后更改container列表中各container的顺序，使得目标container位于最上层
+1. Applications call switching function-`switchToContainer(int)` of ContainerManager class
+2. ContainerManager class makes remote calls to `switchToContainer(int)` interface of ContainerManagerService by Binder mechanism
+3. ContainerManagerService calls Java interface of container device;that is `setFrontContainer(int)` function of `android.util.Container` class
+4. Java interface calls C++ interface by JNI;that is `setFrontContainer(int)` function of container  in libcontainer.so
+5. C++ interface open /dev/container device,and do `ioctl(CONTAINER_SET_FRONT_ID)` operation on it
+6. Container device driver updates the sequence in container list after receiving ioctl operation to make the target container top
 
 
 ##Reference Graph##
