@@ -7,55 +7,55 @@ tags: []
 ---
 {% include JB/setup %}
 
-## Container之间的显示切换 ##
+## Switch and Display between Containers ##
 
 ###  *Background*
 ### SurfaceFlinger
-- SurfaceFlinger内部有一系列的Layer，这些Layer与应用程序的各个窗口对应
-- SurfaceFlinger根据Layer的Z值将它们重叠，然后计算消隐，最后合成显示画面
-- SurfaceFlinger中的Z值是由WindowManagerService设置的
+- SurfaceFlinger inside has a series of layers,which correspond to the windows of applications
+- SurfaceFlinger overlaps the windows according to the Z value of layers,calculates the blanking and display the synthetic frames
+- SurfaceFlinger's Z value is set by WindowManagerService
 
 ### WindowManagerService
-- WMS内部有一系列的WindowState，这些WindowState与应用程序的各个窗口对应
-- WMS根据Activity的启动顺序、激活状态以及系统界面的状态决定窗口的前后位置
-- WMS根据窗口的前后位置设置SurfaceFlinger中对应Layer的Z值
+- WMS inside has a series of WindowStates,which correspond to the windows of applications
+- WMS decides the position of windows according to the startup sequence，activated state and system interface state
+- WMS set the Z value of corresponding layer in SurfaceFlinger according to the windows's position
 
 ### *Solution*
-### 1. 为WMS添加ContainerThread
-- ContainerThread代码位于 `frameworks/base/services/java/com/android/server/wm/WindowManagerService.java` ，是一个线程类
-- ContainerThread创建时会调用`Container.registerContainer()`注册当前的Container
-- ContainerThread线程运行时调用`Container.waitingForNewPosition()`等待当前Container的位置发生改变
-- 当当前Container的位置发生变化时ContainerThread会发送一个消息给ContainerHandler
+### 1. Add ContainerThread for WMS
+- ContainerThread code consists in `frameworks/base/services/java/com/android/server/wm/WindowManagerService.java`,which is a class of thread
+- ContainerThread call `Container.registerContainer()` to register current container when created
+- ContainerThread call `Container.waitingForNewPosition()` to wait for the change of current container's position while running
+- When the position is changed,ContainerThread will send a message to ContainerHandler
 
-### 2. 为WMS添加ContainerHandler
-- ContainerHandler代码位于`frameworks/base/services/java/com/android/server/wm/WindowManagerService.java`，是一个Handler类
-- 当ContainerHandler接收到`CONTAINER_POSITION_CHANGED`消息时：
+### 2. Add ContainerHandler for WMS
+- ContainerHandler code consists in `frameworks/base/services/java/com/android/server/wm/WindowManagerService.java`,which is a class of thread 
+- When ContainerHandler receives `CONTAINER_POSITION_CHANGED` message:
 	
-		1. 设置WMS的成员变量mContainerAdjustment，将其设置成当前Container的位置乘以1,000,000
-		2. 调用WMS.scheduleAnimationLocked()刷新窗口的Z值
+		1. Set WMS's member variable-mContainerAdjustment as the current container's position * 1,000,000
+		2. call WMS.scheduleAnimationLocked() to refresh Z value of windows
 
 ### 3 .Modify WindowManagerService
-- WMS的成员变量`mContainerAdjustment`保存当前Container的Z值调整值
-- WMS设置SurfaceFlinger中的Z值时会在正常的Z值之上加上`mContainerAdjustment`
+- `mContainerAdjustment`,WMS's member variable,is to save adjusted Z value of current container
+- WMS set Z value of SurfaceFlinger;it will add `mContainerAdjustment` on the normal Z value 
 
 ### 4. Modify WindowStateAnimator
-- WindowStateAnimator的成员变量`mLastContainerAdjustment`保存上次刷新本窗口的Z值时`WMS.mContainerAdjustment`的值
-- 设置Z值的代码位于WindowStateAnimator类的`createSurfaceLocked()`和`prepareSurfaceLocked()`函数中
-- `createSurfaceLocked()`函数用于为窗口创建一个Surface，调用时：
+- `mLastContainerAdjustment`,WindowStateAnimator's member variable,is to save last value of `WMS.mContainerAdjustment`
+- Code consists in function `createSurfaceLocked()` and `prepareSurfaceLocked()`of WindowStateAnimator class to set Z value
+- function `createSurfaceLocked()` is to create a surface for windows,when calling:
 	
-		1. 获取WMS.mContainerAdjustment的值
-		2. 将该值保存在mLastContainerAdjustment
-		3. 设置窗口的Z值为会在mAnimLayer + WMS.mContainerAdjustment加上该值
-- `prepareSurfaceLocked()` 函数用于刷新窗口的状态，调用时：
+		1. Get WMS.mContainerAdjustment's value
+		2. Save it by mLastContainerAdjustment
+		3. Set windows's Z value as mAnimLayer + WMS.mContainerAdjustment
+- function `prepareSurfaceLocked()` is to refresh windows's state,when calling:
 		
-		1. 获取WMS.mContainerAdjustment的值
-		2. 判断该值与mLastContainerAdjustment的值是否一样
-		3. 如果一样则刷新Z值为mAnimLayer + WMS.mContainerAdjustment
-		4. 更新mLastContainerAdjustment的值为WMS.mContainerAdjustment
+		1. Get WMS.mContainerAdjustment's value
+		2. Judge the value,if it's same as mLastContainerAdjustment's value
+		3. If the same,refresh Z value as mAnimLayer + WMS.mContainerAdjustment
+		4. Update mLastContainerAdjustment's value as WMS.mContainerAdjustment
 #### Modified files
 - `/frameworks/base/services/java/com/android/server/wm/WindowManagerService.java`
 - `/frameworks/base/services/java/com/android/server/wm/WindowStateAnimator.java`
-- 不用修改相照应的`Android.mk`
+- Don't need to modify relevant `Android.mk`
 
 
 ##Reference Graph and explanation##

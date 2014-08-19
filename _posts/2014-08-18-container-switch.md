@@ -7,7 +7,7 @@ tags: []
 ---
 {% include JB/setup %}
 
-## /dev/container设备 ##
+## /dev/container device ##
 
 ### Device Drive
 - /dev/container设备是一个虚拟设备，设备驱动代码位于内核`drivers/staging/android/container.c`
