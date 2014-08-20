@@ -8,51 +8,51 @@ tags: []
 {% include JB/setup %}
 
 ##Step I  :Compile Android Kernel##
-1. 下载源代码。这里的kernel子项目中有各个设备对应的kernel源代码：
+1. Download source code;Kernel's subproject has kernel source code corresponding to the devices here:
 	
 		https://android.googlesource.com
-  	这里可以找到设备对应的内核源代码路径：
+  	You can find kernel source code path corresponding to your device here
 	
 		http://source.android.com/source/building-kernels.html
-    这个git项目下载速度比较慢，可以用bitbucket或者deveo中转
-2. checkout branch。进入源代码目录，使用
+    Download of this git project  is slow,you can use bitbucket or deveo to transfer
+2. checkout branch;Change to the source directory,use
 	
 		$ git branch -a
-	查看所有的branch，然后使用
+	View all branches,then use
 	
 		$ git checkout <branch_name>
-	检出代码，此处的branch_name可能有remotes/origin前缀，而且不需要加-b选项，如果加了将会创建一个新的branch
-3. 配置编译环境。clone这个repo（可能也需要中转）：
+	Check codes,here branch_name may have remotes/origin prefix,and there is no need to add -b option,else it will create a new branch
+3. Configuration compiling environment;Clone this repo(you may need transfer):
 	
 		https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6
-    设置PATH环境变量，添加repo下边的bin目录
-4. 编译源代码
+    set PATH environment variable,add bin directory beneath repo
+4. Compile source code
     
 		$ export ARCH=arm
 	    $ export SUBARCH=arm
 	    $ export CROSS_COMPILE=arm-eabi-
-	    $ make xx_defconfig # 这里可以查到config：http://source.android.com/source/building-kernels.html)
+	    $ make xx_defconfig # (Here you can find) config：http://source.android.com/source/building-kernels.html)
 	    $ make
-    编译好的kernel为`arch/arm/boot/zImage`（Nexus 5为`zImage-dtb`）
-5. 刷机  
-    - 方法一：设置TARGET_PREBUILT_KERNEL环境变量为编译好的kernel，然后m制作boot.img，用
+    Compiled kernel is `arch/arm/boot/zImage`（Nexus 5 is `zImage-dtb`）
+5. Flush a new ROM  
+    - Method One:set TARGET_PREBUILT_KERNEL environment variable as compiled kernel,then m make boot.img,using
     		
 			$ fastboot flash boot boot.img
-		刷入
-    - 方法二：将编译好的kernel copy到out/x/x/x/目录，命名为kernel，然后m制作boot.img，用fastboot刷入
+		Flush
+    - Method Two:copy compiled kernel to out/x/x/x/ directory,named after kernel,then m make boot.img,flush with fastboot
 
 ##Step II :Compile Android Source Code##
-1. 下载源代码。这里可以查到设备支持的Android版本：
+1. Download source code;Here you can find Android versions which devices support:
 
 		https://developers.google.com/android/nexus/drivers
-2. 下载驱动。这里有设备对应的驱动  
+2. Download driver;Here has driver corresponding to devices:  
 	
 		https://developers.google.com/android/nexus/drivers
-    下载完成之后解压得到一个脚本，放到Android源代码目录下执行即可
-3. 配置编译环境
+     Get a script after download and extract,put it in Android directory to execute
+3. Configuration compiling environment
 	    
-		系统：Ubuntu x86_64 EN
-	    软件包：
+		System：Ubuntu x86_64 EN
+	    Package：
 	        build-essential/gcc&g++/lib32stdc++6
 	        jdk6
 	        python 2.6.x/2.7.x
@@ -67,12 +67,12 @@ tags: []
 	        zip
 	        squashfs-tools
 			libncurses5-dev 
-4. 进入Android源代码目录，执行以下步骤编译源代码：
+4. Enter Android source code directory;Execute following command to compile source code:
 	
 		$ source build/envsetup.sh
-	    $ lunch # 选择与设备代号对应的target
+	    $ lunch # (choose target corresponding to device)
 	    $ m
-5. 把设备插上，执行以下步骤刷机(需要root权限)：
+5. Connecting devices;Execute following command to flush a new ROM(you need run as root):
 	    
 		$ adb reboot bootloader
 	    $ fastboot devices
@@ -80,96 +80,96 @@ tags: []
 
 ##Step III :Kernel Modification##
 ### Conbinder Driver
-1. 进入`drivers/staging/android/`目录
-2. 创建`conbinder.h`和`conbinder.c`
-3. 将`binder.c`中的头文件移到`conbinder.h`中，然后`include "conbinder.h"`
-4. 将`binder_fops`结构中包含的函数去掉`static`修饰，然后在`conbinder.h`中添加其声明
-5. 在`conbinder.h`中添加`CONBINDER_GET_CURRENT_CONTAINER`宏定义（`ioctl`获取当前进程所在container编号的命令）
-6. 在`conbinder.c`中添加虚拟驱动代码
-7. 修改`binder.c`中的`binder_ioctl`函数，增加`CONBINDER_GET_CURRENT_CONTAINER`命令的处理代码
-8. 修改`Kconfig`，增加`ANDROID_CONBINDER_IPC`选项
-9. 修改`Makefile`，增加`conbinder.o`的编译配置
+1. Enter `drivers/staging/android/` directory
+2. Create `conbinder.h` and `conbinder.c`
+3. Move the header file of `binder.c` to `conbinder.h`,then `include "conbinder.h"`
+4. Remove `static` from `binder_fops` struct's function,then add its declaration in `conbinder.h`
+5. Add `CONBINDER_GET_CURRENT_CONTAINER` macro definition in `conbinder.h`(`ioctl` operation gets container's ID in which current process is)
+6. Add virtual driver code in `conbinder.c`
+7. Modify `binder_ioctl` function in `binder.c`,add treatment codes of `CONBINDER_GET_CURRENT_CONTAINER` command
+8. Modify `Kconfig`,add `ANDROID_CONBINDER_IPC` option
+9. Modify `Makefile`,add `conbinder.o` compilation configuration
 
 
 ### Conalarm Driver
-1. 进入`drivers/rtc/`目录
-2. 修改`alarm-dev.c`，增加`conalarm_fops`和`conalarm_device`数据结构以及初始化代码，并且自定义`conalarm_open`函数
-3. 将`conalarm`相关代码是否编译用宏定义`ANDROID_CONALARM`控制
-4. 修改`Kconfig`，增加`ANDROID_CONALARM_DEV`选项
-5. 修改`Makefile`，增加`ANDROID_CONALARM`宏定义的编译配置（`ccflags`）
+1. Enter `drivers/rtc/` directory
+2. Modify `alarm-dev.c`,add `conalarm_fops` and `conalarm_device` data struct,initialize code and customize `conalarm_open` function
+3. Using macro definition-`ANDROID_CONALARM` to control relevant `conalarm` code if compiled
+4. Modify `Kconfig`,add `ANDROID_CONALARM_DEV` option
+5. Modify `Makefile`,add compilation configuration(`ccflags`) of macro definition `ANDROID_CONALARM`
 
 
 ### Container Driver
-1. 进入`drivers/staging/android/`目录
-2. 创建`container.h`和`container.c`
-3. 在`container.h`中添加各`ioctl`命令的宏定义
-4. 在`container.c`中添加container设备的驱动函数，数据结构和初始化代码
-5. 修改`Kconfig`，增加`ANDROID_CONTAINER`选项
-6. 修改`Makefile`，增加`container.o`的编译配置
+1. Enter `drivers/staging/android/` directory
+2. Create `container.h` and `container.c`
+3. Add macro definition of `ioctl` command in `container.h`
+4. Add driver function,data struct and initialization code of container device in `container.c`
+5. Modify `Kconfig`,add `ANDROID_CONTAINER` option
+6. Modify `Makefile`,add `container.o` compilation configuration
 
 
 ### Compile Configuration
-1. 修改`.config`，增加以下配置选项
+1. Modify `.config`,add following compilation configuration options
 	
 		ANDROID_CONBINDER_IPC
 		ANDROID_CONALARM_DEV
 		ANDROID_CONTAINER
 		IKCONFIG
 		IKCONFIG_PROC
-2. 根据`lxc-checkconfig`的要求增加编译配置选项		
-3. `按照Step II`编译
+2. According to `lxc-checkconfig`,add compilation configuration options		
+3. `According toStep II`,compile
 
 ##Step IV :ramdisk modification##
 ### init.rc
-1. remove  
+1. Remove  
 	
 		mount rootfs rootfs / ro remount
 
-2. add
+2. Add
 	
 		mount tmpfs tmpfs /run
 		symlink /system/bin /bin
 
-3. 在PATH环境变量后面添加  
+3. Add it after PATH environment variable  
 	
 		:/system/busybox/bin:/system/busybox/sbin:/system/local/bin
 
-4. 在LD_LIBRARY_PATH后面添加
+4. Add it after LD_LIBRARY_PATH:
 	
 		:/system/local/lib
 
-5. add
+5. Add
 	
 		export ANDROID_CT /system/local/var/lib/lxc/android4.x.x
 
 
 ### uevent.rc
-1. add
+1. Add
 	
 		/dev/conbinder1			0666	root		root
 		...
 		/dev/conbinder9			0666	root		root
-2. add
+2. Add
 	
 		/dev/conalarm           0664   system     radio
 
-3. add
+3. Add
 	
 		/dev/container          0666	root		root
 
 ##Step V ：LXC Modification and Compilation##
-### 代码修改
+### Code modification
 
-1. 使用chroot代替pivot_root系统调用
+1. Use chroot to replace pivot_root system call
 
-### 交叉编译lxc
+### Cross compilinglxc
 
 1. Download Android NDK
-2. 解压NDK之后在其中执行
+2. Extract NDK,then execute in it
 	
 		$ build/tools/make-standalone-toolchain.sh
-	然后在/tmp目录中找到tool chain
-3. 添加tool chain目录到PATH环境变量
+	Find tool chain in /tmp directory
+3. Add tool chain directory after PATH environment variable
 
 4. Download `lxc-1.0.0.alpha*` source code
 
@@ -179,21 +179,22 @@ tags: []
 6. Execute
 	
 		$ ./configure --host=arm-linux-androideabi --prefix=/system/local CC=arm-linux-androideabi-gcc --disable-capabilities
-7. Execute 'make'，忽略lua相关的错误
+7. Execute 'make',ignore relevant lua wrong
 8. Execute
 	
 		$ sudo make prefix=/system/local install
-	在`/system/local`下面可以找到编译好的程序
+	You can find compiled procedure in `/system/local`
 
-##Step VI ：system分区修改##
+##Step VI ：Modify system partitions##
 ## Busybox
-将编译好的busybox放到system目录
+Put compiled busybox in system directory
 
 ## LXC
-将lxc的安装目录下面的各个文件夹打包，解压到/system/local目录
+Pack the folders in lxc's installation directory,then extractit in /system/local
+directory
 
 ## Cgroups
-1. 在/system/下面创建cgroup目录，并在其中创建以下目录
+1. Create cgroup directory beneath /system/,and Create following directory beneath cgroup
 	
 		cpuset
 		memory
@@ -201,7 +202,7 @@ tags: []
 		freezer
 		device
 
-2. 在/system/local/bin中创建脚本mount-cgroups.sh用于挂载cgroups和ashmem，命令为
+2. Create script file `mount-cgroups.sh` beneath /system/local/bin,to mount cgroups and ashmem;command is following:
 	
 		for t in `ls /system/cgroup`
 		do
@@ -212,11 +213,11 @@ tags: []
 		mount -t tmpfs -o nodev,noexec tmpfs /dev/shm
 
 ## ServiceManager
-1. 修改服务名过滤规则，允许注册修改过的服务
+1. Modify filter rule of service name,allow registering modified service
 
-## Container配置和根文件系统
-1. 在`/system/local/var/lib/lxc`下创建文件夹`androidx.x.x`用于存储Container系统
-2. 在文件夹中创建config文件和rootfs目录
+## Container configure and root filesystem
+1. Create folder `androidx.x.x` beneath `/system/local/var/lib/lxc` to save container system
+2. Create file config and directory rootfs within the folder
 
 ### config
 	
@@ -226,9 +227,9 @@ tags: []
 	lxc.cgroup.devices.allow = a
 
 ### rootfs
-1. 将原系统根目录下面的文件全部copy到rootfs目录
-2. 创建与原系统根目录一致的符号链接
-3. 按照以下规则创建根目录下的各目录：（copy表示直接复制主机的相应目录，empty表示创建空目录，下同）
+1. Copy all files beneath original system root directory to rootfs directory
+2. Create symbolic Links corresponding to original system root directory
+3. Create directories beneath system root directory,following the principles:(copy means copying directories of host;empty means creating a empty directory；the same below)
 	
 		/firmware		copy
 		/persist		copy
@@ -246,8 +247,8 @@ tags: []
 		/root			empty
 		/dev			empty
 		/system			empty
-4. 按照/dev下的各个设备文件的文件名、设备号、权限和所有者在rootfs/dev下创建各个设备节点
-5. 按照以下规则创建system目录下的文件和目录
+4. Create device nodes in rootfs/dev,according to filename,device number,permission and owner of all device files
+5. Create folder and directory beneath system directory,as following rules:
 	
 		app					empty
 		bin					copy
@@ -258,14 +259,14 @@ tags: []
 		framework			empty
 		lib					empty
 		media				empty
-		priv-app				empty
+		priv-app			empty
 		tts					copy
 		usr					copy
 		vendor				copy
 		xbin				copy
 
 ### Other Script
-1. 在android4.x.x目录下创建脚本文件mount-bind.sh，输入以下命令
+1. Create script file `mount-bind.sh` in `android4.x.x` directory,Enter the following command：
 	
 		mount -o bind /system/app rootfs/system/app
 		mount -o bind /system/framework rootfs/system/framework
@@ -276,36 +277,36 @@ tags: []
 		mount -o bind /dev/conbinder1 rootfs/dev/binder
 		mount -o bind /dev/conalarm rootfs/dev/alarm
 
-2. 在android4.x.x目录下创建脚本文件share.sh，输入以下命令
+2. Create script file `share.sh` in `android4.x.x` directory,Enter the following command：
 	
 		echo "SurfaceFlinger" >>/proc/conbinder/sharedservices
 
 ### init
-1. 禁止创建/dev目录
-2. 禁止挂载tmpfs到/dev目录
+1. Forbid creating /dev directory
+2. Forbid mounting tmpfs on /dev directory
 
 ### init.rc
-1. 禁用ueventd
-2. 禁用servicemanager
+1. Forbidden ueventd
+2. Forbidden servicemanager
 
-##Step VII :启动Container##
-1. 启动主机
-2. 使用以下命令以root权限进入shell：
+##Step VII :Start Container##
+1. Start host
+2. Enter shell using following command as root:
 	
 		# adb root
 		# adb shell
-3. 执行以下命令mount各种文件夹：
+3. Execute following command to mount various folders:
 	
 		# mount-rw.sh
 		# mount-cgroups.sh
-4. 进入container所在目录，执行以下命令：
+4. Enter directory in which container is,and execute following command:
 	
 		# ./mount-bind.sh
 		# ./share.sh  
-5. 执行以下命令清空日志：
+5. Execute following command to clear log:
 	
 		# dmesg -c
 		# logcat -c
-6. 执行以下命令启动container：
+6. Execute following command to start container：
 	
 		lxc-start -n <container name>
