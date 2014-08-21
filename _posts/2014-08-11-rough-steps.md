@@ -9,8 +9,8 @@ tags: []
 
 ## Compile Kernel (support cgroups & namespaces)
 
-从[**Android X86**](http://git.android-x86.org)上下载*kernel*源代码包进行编译，内核*config*文件拷贝自 **Android X86**，在此基础上为了支持LXC的环境需要开启如下的编译选项。  
-**（1）Namespace相关**  
+Download *kernel* source code from [**Android X86**](http://git.android-x86.org)to compile,kernel's *config* file is copied from **Android X86**.On this basis,you need following compiler options to surpport LXC's environment.
+** (1) About Namespace**  
 
 	CONFIG_NAMESPACES  
 	CONFIG_UTS_NS  
@@ -18,7 +18,7 @@ tags: []
 	CONFIG_PID_NS  
 	CONFIG_NET_NS  
 
-**（2）Cgroups相关**
+**（2）About Cgroups**
   
 	CONFIG_CGROUPS  
 	CONFIG_CGROUP_NS  
@@ -27,7 +27,7 @@ tags: []
 	CONFIG_CGROUP_CPUACCT  
 	CONFIG_CPUSETS  
 
-**（3）MISC相关**
+**（3）About MISC**
   
 	CONFIG_VETH  
 	CONFIG_MACWLAN  
@@ -39,49 +39,50 @@ tags: []
 	CONFIG_POSIX_MQUEUE
     
 ## Transplant LXC tools to Android Host
-LXC软件包里既有可执行程序，也有shell脚本。  
-**（1）编译LXC**  
+LXC package has executable program and shell script.
+**（1）Compile LXC**  
 
 	./configure --prefix=/system/local	
 	make
 	make install
 
-注意./configure默认的prefix是/usr/local，而android下没有/usr目录，故需要修改。  
-**（2）Shell脚本移植**  
-lxc的脚本基本是以GNU Linux的**bash** 为环境写就的。很多工具和命令在Android的**busybox**和**mksh**的环境下不存在或不可执行。所以，需要做如下修改：  
-1. 静态链接了一个bash程序，移植到了android下。  
-2. 将ubuntu 10.04的file程序拷贝到了android下。  
-3. 拷贝zgrep脚本到android。zgrep中调用的”gzip -cdfq”在Android下不能使用，修改成”gzip -c -d -f”  
-4.  lxc-create第190处调用了id -u命令，这一句在android下不能执行，注释掉相应代码。lxc-destroy需要做相应的修改。  
+Note:/usr/local is default prefix of /configure ,and there is no /usr directory in android下,so you need to change it.
+  
+**（2）Transplant Shell script**  
+lxc's script is written in GNU Linux's **bash**.Many tools and commands is non-existent or non-executable.So you need modify as follow:  
+1. Statically link a bash procedure,and transpant to android  
+2. Copy ubuntu 10.04 file procedure to android  
+3. Copy zgrep script to android;zgrep calls ”gzip -cdfq”,and it can't use in Android,replace it to ”gzip -c -d -f”  
+4. lxc-create call command id -u from 190;this command can't execute in android,so you should comment revelant code out;lxc-destroy need do some modifications  
 
-**（3）源代码的修改**  
-LXC项目中conf.c中调用了tmpfile()这个API提供的函数。该函数在Android的bionic libc中没有实现。需要自己写一个tmpfile_replace()，功能和tmpfile()相同，让conf.c调用tmpfile_replace()。
+**（3）Modify source code**  
+conf.c in LXC project calls tmpfile(),which didn't realize in Android's bionic libc.You need write tmpfile_replace(),whose function is same as tmpfile(),and conf.c can call tmpfile_replace()
 
-**（4）重新编译LXC**  
-修改完LXC源代码后，需要重新编译，主要步骤包括：  
-1. 修改LXC_PROJECT/src/lxc/Makefile.am, 将新添加的代码文件加到宏pkginclue\_HEADERS和liblxc\_so\_SOURCES中。  
-2. 调用autoconf重新生成configure文件（需要安装autotools和libtools）。  
-3. 重新调用./configure和make
+**（4）Compile LXC again**  
+You need compile LXC again after modifying LXC source code; The main process includes following:   
+1. Modify LXC_PROJECT/src/lxc/Makefile.am,put new code files to Macro pkginclue\_HEADERS and liblxc\_so\_SOURCES  
+2. Call autoconf to generate configure file(you need install autotools and libtools)  
+3. Call ./configure and make again
 
 ## Run Busybox container
-Busybox是一个二进制可执行程序，里面集成压缩了Linux的许多工具,大约包括了一百多个常用的Linux命令和工具。  
-Busybox被视为最简单的Linux系统，因为其包含了构建一个完整Linux文件系统层级的所有工具，如init，mount，mknod等，所以运行起一个Busybox Container可以验证我们的Android LXC环境是否能正常工作了。  
-**（1）静态编译Busybox**  
-为了在创建Container的rootfs时（lxc-create），不出现动态共享库错误，需要静态编译一个完整的busybox  
-1. 从[Busybox](http://www.busybox.net)官网上下载busybox源码;  
-2. make menuconfig, --> Build Options, --> Build Busybox as a static binary;  
+Busybox is a binary executable program,which integrates about 100 frequently-used Linux commands and tools.  
+Busybox is viewed as simplest Linux system,which contains all tools to create a complete Linux filesystem hierarchy standard,such as init,mount,mknod,and so on.So,if you can run a Busybox Container,you can also work on our Android LXC environment.  
+**（1）Compile statically Busybox**  
+You need compile statically a complete busybox to avoid dynamic Shared libraries' error when creating container's rootfs(lxc-create)
+1. Download busybox source code from [Busybox](http://www.busybox.net)
+2. make menuconfig, --> Build Options, --> Build Busybox as a static binary  
 3. make  
-4. 将编译出来的busybox，放到Host的/system/local/bin目录下，并添加环境变量  
+4. Put compiled busybox to /system/local/bin directory beneath Host,and add PATH environment variable  
 
 ```
 adb push bin/busybox /system/local/bin/
 export PATH=/system/local/bin:$PATH
 ```  
-**(2) 创建Busybox的rootfs**
+**(2) Create rootfs of Busybox**
 
 	lxc-create -t busybox -n bb
 
-**(3) 修改Busybox的config**
+**(3) Modify config of Busybox**
 
 	lxc.utsname = bb
 	lxc.tty = 1
@@ -91,14 +92,14 @@ export PATH=/system/local/bin:$PATH
 	lxc.mount.entry = /lib /system/local/var/lib/lxc/bb/rootfs/lib none ro,bind 0 0
 	lxc.mount.entry = /lib /system/local/var/lib/lxc/bb/rootfs/usr/lib none ro,bind 0 0
 
-**(4) 挂载cgroup文件系统**
+**(4) Mount cgroup file system**
 
 	for t in `ls /system/cgroup`
 	do
 		mount -t cgroup -o $t cgroup /system/cgroup/$t
 	done
 
-**(5)解决No such file or directory: /dev/shm的问题(optional)**
+**(5)Solve problem -- No such file or directory: /dev/shm (optional)**
 
 	mkdir -p /dev/shm
 	mount -t tmpfs -o nodev,noexec tmpfs /dev/shm

@@ -12,7 +12,7 @@ tags: []
 虚拟机更好地使用主机提供的Binder IPC机制，在安全和性能之间找到一个平衡点。我们在虚拟机中使用虚拟Binder设备而非实际的Binder设备。
 
 ###Technical Proposal
-**1.Create Virtual Binder Device Diver**
+**1.Create Virtual Binder Device Driver**
 
 我们在Android系统的Linux内核中添加了虚拟Binder设备的驱动程序，这个驱动程序的主要功能有以下两个方面：
 
