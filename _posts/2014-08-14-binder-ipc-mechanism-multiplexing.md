@@ -7,82 +7,86 @@ tags: []
 ---
 {% include JB/setup %}
 
-所谓复用Binder IPC机制，是指Binder IPC机制的核心组件(如Binder设备驱动、Service Manager)由主机提供。虚拟机没有这些组件，虚拟机中的进程通过一个虚拟设备间接地使用主机提供Binder IPC机制。
+Binder IPC Mechanism Multiplexing,means that Host provide its core component(such as Binder device driver,Service Manager).Virtual machine has no these components,and its process use Binder IPC Mechanism through a virtual device indirectly.
 
-虚拟机更好地使用主机提供的Binder IPC机制，在安全和性能之间找到一个平衡点。我们在虚拟机中使用虚拟Binder设备而非实际的Binder设备。
+To use Binder IPC Mechanism better,we choose virtual Binder device,not real Binder device.
 
 ###Technical Proposal
 **1.Create Virtual Binder Device Driver**
 
-我们在Android系统的Linux内核中添加了虚拟Binder设备的驱动程序，这个驱动程序的主要功能有以下两个方面：
+We add virtual Binder device driver in Android system,whose main functions is following:
 
-(1)调用Binder设备驱动的函数，将应用程序对虚拟Binder设备的操作（如open, ioctl, mmap等）转发给真实的Binder设备驱动。
+(1)Call Binder device driver funtion,and transfer operations(open, ioctl, mmap) which applications do on virtual Binder device to real Binder device driver.
 
-(2)拦截应用程序对虚拟Binder设备的ioctl操作，过滤出发送给Service Manager的注册服务（由服务进程发起）和获取服务（由客户端进程发起）的请求，并且在转发给真实Binder设备之前使用一个转换函数 f 修改这两种请求中的服务名字段。
+(2)Capture ioctl operation which applications do on virtual Binder device,filter registered service(launched by server process) and obtained service(launched by client process) which are sent to Service Manager,and use transfer function 'f' to modify service name in this 2 requests bdfore tranfering to real Binder device.
 
-转发设备操作使得虚拟Binder设备具有与真实Binder设备相同的功能。修改注册服务请求，使不同的虚拟机中运行的同名服务以不同的名字注册到主机的Service Manager中，解决名字冲突的问题。修改获取服务请求使得虚拟机中运行的客户端进程能够获取到与其运行在同一虚拟机中的服务，解决运行在不同虚拟机的同名服务之间无法区分的问题。
+Tranfering device operation makes virtual Binder device has same function as real Binder device's.Modifying register service request makes same services running in different virtual machines register in Host's Service Manager with different names to solve problem of name conflict.Modifying obtain service request makes client process running in virtual machine get service in its same virtual machine,to solve problem of indistinguishable same services in different virtual machines.
 
 **2.Create and Allocate Virtual Binder Device**
 
-驱动程序构建完成之后，我们在Linux内核初始化时使用这个驱动注册一组虚拟Binder设备，内核启动之后将自动创建这一组设备对应的设备文件。在虚拟机启动之前，我们将虚拟机根文件系统中的Binder设备文件（/dev/binder）与主机的某个虚拟Binder设备文件绑定。这样虚拟机中的程序访问其根文件系统中的/dev/binder相当于访问主机的虚拟Binder设备，即其访问操作将调用虚拟Binder设备驱动中的函数。
+After creating driver procedure,we use it to register a group of Binder devices when initializing Linux kernel.It'll automatically create device file corresponding to these devices.Before booting the virtual machine,we bind Binder device file（/dev/binder) of root file system in virtual machine and a Host's virtual Binder device file together.Accessing /dev/binder in virtual machine means accessing Host's virtual binder device,so access operation will call functions in virtual binder device driver. 
 
 **3.Sharing Service List**
 
-由于Android设备的资源有限，而在一个设备上运行多个Android系统必然降低单个系统的运行性能。为了最大限度地减少Android虚拟化带来的性能损失，我们将一些可以被多个虚拟机共享的服务运行在主机中，而虚拟机中则不启动这些服务，然后通过设置共享服务列表来实现服务共享的功能，以此减少整个设备上运行的服务总数。为此，我们在proc文件系统中创建一个文件作为设置共享服务的接口，用户只需将服务名字写入这个文件就可以设置某个特定的服务为共享服务。所有共享服务的名字构成一个列表，保存在内核内存空间中。虚拟Binder设备驱动在修改注册服务和获取服务的请求时首先会查找这个列表。如果服务名字不在共享服务列表中则按照既定规则进行修改，否则不作修改，直接将请求转发给真实的Binder设备驱动。这样虚拟机中的客户端进程获取共享服务时得到的将是主机中运行的服务，虚拟机中则不运行这些服务。
+Since the limited resource of Android device,it'll reduce the operating performance of the single system to run serveral Android system on a device.In order to minimize Android virtualization performance penalties, we let some of the services that can be shared among multiple virtual machines run on the host, while the virtual machine does not start the services, and then by setting the list of shared services to implement shared services functions, thus reducing the total number of services that run on the device.
+
+To this end, we create a file as a shared services interface in the proc file system, users simply write the service name of the file to set a specific service as shared service. Name of all shared services constitutes a list,which is stored in kernel memory space. Virtual Binder device drivers will firstly search for the service request list when modifying the registration service and getting the  service.
+
+If the service name is not in the list of shared services, modify it according to the established rules,else the Binder directly forwards the request to the real device driver. Virtual machine gets shared services will be obtained when the client process is running on the host services, these services are not running in the virtual machine.
 
 ###Specific Technical Method
 **1.Create Virtual Binder Device Diver**
 
-虚拟Binder设备驱动主要负责拦截、过滤和修改进程对Binder设备的各种操作，然后将操作请求转发给真实的Binder设备驱动。该驱动按照misc设备驱动的模型编写，代码存放在conbinder.c中。首先需要创建一个struct file_operations类型的结构体变量conbinder_fops，这个结构体中的函数指针与虚拟Binder设备的各种操作一一对应。我们对于需要拦截的操作编写自定义的驱动函数，对于不需要拦截的操作则直接使用真实Binder设备驱动中的函数。这些函数的实现方式如下表所示：
+Virtual Binder device driver is responsible for capturing, filtering and modifying process to the various operations of the Binder device, and then forwards the request to the real Binder device driver. The drive iswritten according to the Misc device driver model, code stored in conbinder.c.First you need to create a structure of type struct file_operations variable conbinder_fops, and function pointers in the structure corresponds to the various actions of virtual Binder device one by one. We need to write custom driver function of interception operations, used directly for operations that don't need to intercept the real function in the Binder device drivers. The implementations of the functions are shown in the following table:
 
 <table>
    <tr>
-      <td><strong>对设备的操作</td>
-      <td><strong>函数指针</td>
-      <td><strong>实现方式</td>
+      <td><strong>Operation on Device</td>
+      <td><strong>Function Pointers</td>
+      <td><strong>Implementation</td>
    </tr>
 
    <tr>
-      <td>打开Binder设备</td>
+      <td>open Binder device</td>
       <td>.open</td>
-      <td>使用binder_open函数</td>
+      <td>use binder_open function</td>
 
    </tr>
 
    <tr>
-      <td>查询Binder设备是否可以非阻塞地读</td>
+      <td>query Binder device if it can read without blocking</td>
       <td>.poll</td>
-      <td>使用binder_poll函数</td>
+      <td>use binder_poll function</td>
    </tr>
 
    <tr>
-      <td>给Binder设备发送命令</td>
+      <td>send command to Binder device</td>
       <td>.unlocked_ioctl</td>
-      <td>自定义conbinder_ioctl函数</td>
+      <td>custom conbinder_ioctl function</td>
    </tr>
 
    <tr>
-      <td>同上，用于64位系统中的32位进程</td>
+      <td>used for 32-bit process in 64-bit system</td>
       <td>.compact_ioctl</td>
-      <td>自定义conbinder_ioctl函数</td>
+      <td>custom conbinder_ioctl function</td>
    </tr>
 
    <tr>
-      <td>将Binder设备的一段内存空间映射到进程的地址空间</td>
+      <td>map Binder's memory space to process's  address space</td>
       <td>.mmap</td>
-      <td>使用binder_mmap函数</td>
+      <td>use binder_mmap function</td>
    </tr>
 
    <tr>
-      <td>强制执行已缓冲的I/O操作</td>
+      <td>execute buffered I/O operation</td>
       <td>.flush</td>
-      <td>使用binder_flush函数</td>
+      <td>use binder_flush function</td>
    </tr>
 
    <tr>
-      <td>释放Binder设备</td>
+      <td> release Binder device</td>
       <td>.release</td>
-      <td>使用binder_release函数</td>
+      <td>use binder_release function</td>
    </tr>
 </table>
 
@@ -92,25 +96,28 @@ tags: []
 
 ![](https://github.com/condroid/condroid.github.com/blob/master/imgs/20140814binder2.png?raw=true)  
 
-为了使内核启动完成之后创建一组虚拟Binder设备，我们编写了conbinder_init函数用于初始化虚拟Binder设备的信息以及注册这些设备。首先我们定义了一组struct miscdevice类型的结构体，然后在conbinder_init函数中调用init_devs函数初始化这些结构体，初始化过程包括设定其minor（次设备号）、name（设备名称）和fops（各设备操作对应的函数指针）三个字段，不同结构体的name字段不同（包含各虚拟Binder设备的编号），其它字段相同。fops字段设定为虚拟Binder设备驱动中的conbinder_fops结构体的地址。初始化完成之后conbinder_init函数继续调用register_devs，后者循环调用misc_register函数将之前初始化好的虚拟Binder设备注册到内核中。这样，内核启动完成之后会在/dev目录下创建以设备名称命名的虚拟Binder设备文件。通过在mount命令中使用bind选项可以将这些设备文件与虚拟机根文件系统中的/dev/binder文件绑定，从而将其分配给虚拟机。虚拟机中的应用程序访问Binder设备时，内核将执行虚拟Binder设备驱动程序中的函数。
+In order to make the kernel boot process creates a set of virtual Binder device, we write the conbinder_init function to initialize the virtual information of Binder device and register the device. First we define a group struct miscdevice type of structure body, thencall init_devs function to initialize these structure body in conbinder_init function, initial process include setting its minor (device ID), and name (device name) and FoPs (function pointer corresponding to each device), different structure body has different name field(contains each virtual Binder device ID), In other fields the same. FoPs field is set to the virtual address of the conbinder_fops structure in the Binder device drivers.
+
+Conbinder_init function calls register_devs after the initialization, the latter loop calls the misc_register function to register a initialized virtual Binder devices in the kernel. So, the kernel will create virtual Binder device named after the device file in the/dev directory after startup. By using the bind option in mount command, you can bind these files and/dev/Binder files of the root file system in virtual machine , and assign them to the virtual machine. When applications access the Binder device in a virtual machine, the kernel will perform a virtual function in the Binder device drivers.
 
 **3.Interface of Sharing Service List**
 
 (1)Create file in proc file system：
 
-本发明中的共享服务列表配置接口借助proc文件系统实现。我们在conbinder_init函数中添加代码，先调用proc_mkdir函数在/proc目录下创建一个目录，然后调用create_proc_entry在该目录中创建一个名为sharedservices的文件，接着创建两个函数conbinder_proc_ss_read和conbinder_proc_ss_write并将它们分别设定为sharedservices文件的读、写回调函数。
+The configuration interface of shared services list is implemented through the proc file system. We add code in the conbinder_init function, first call the proc_mkdir function to create a directory in the/proc directory, and then call the create_proc_entry in that directory to create a file named sharedservices, last create two functions conbinder_proc_ss_read and conbinder_proc_ss_ Write and set them to sharedservices file's read and write callback function.
 
 (2)Define Data Struct of Sharing Service List：
 
-文件创建成功之后我们在内核中分配一块内存用于存储写入sharedservices文件的数据，然后创建一棵红黑树services_tree用于索引该文件中存储的共享服务名。
+After creating file , we allocate a block of memory in the kernel for the sharedservices file to write data, and then create a red-black tree-services_tree to index the file name stored in the shared services.
 
 (3)Read and Write Sharing Service List：
 
-当用户将共享服务名写入sharedservices文件时，内核将调用conbinder_proc_ss_write函数。该函数首先接收到的数据存储到之前分配的内存块中，然后将数据中包含的服务名字插入services_tree中。当用户读取sharedservices文件时，内核将调用conbinder_proc_ss_read函数，该函数读取内存块中的数据并返回给上层。
+When user writes the shared services name in sharedservices file, the kernel calls the conbinder_proc_ss_write function. The function stores the received data in the allocated memory block, and then inserts service names contained in data in services_tree. When user reads the sharedservices file, the kernel calls the conbinder_proc_ss_read function, the function reads the data in the memory block and returns to the top.
 
 (4)Realize Sharing Service：
 
-为了实现服务共享的功能，我们在虚拟Binder设备的驱动程序中设置了一个白名单。如果拦截到的某个请求中的服务名字属于这个白名单，那么该请求将不会被修改。这样，虚拟机中不需要运行白名单中的服务，虚拟机中的客户端进程向Service Manager请求白名单中的某个服务时，Service Manager返回的将是主机中运行的服务。因此，白名单中的服务只需在主机中运行，被主机以及所有虚拟机中的客户端进程所共享。本发明中这个白名单即设置为services_tree这棵红黑树。虚拟Binder设备的驱动程序在修改请求中的服务名字之前会在services_tree中查找该服务名字，如果未找到则继续修改，如果找到则放弃修改。
+In order to achieve shared service functions, our virtual Binder device driver set a whitelist. If the service name of a intercepted request belongs to the white list, the request will not be modified. Thus, virtual machines do not need to run service client processes in whitelist.When client process in virtual machine requests a service from the whitelist to the Service Manager,service Manager returns service which runs on the host. Therefore,service in whitelist  just runs on the host,shared by host and all client processes in the virtual machine. The whitelist is set to a red-black tree-services_tree. Virtual Binder device drivers will find the service name in a services_tree before modifying the request's service name , if not found then amending them; if found, discard your changes.
+
 
 ###Reference Graph
 - ***The Overall Frame***

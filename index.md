@@ -7,10 +7,11 @@ tagline: This is homepage
 
 Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization solution based on OS-level virtualization method. It supports multiple isolated Android user-space instances simultaneously, which enables two or more individual, completely independent, and secure personas to coexist seamlessly on one device.  
 
-## Requirements
-	- Android X86,version: Jelly Bean 4.2.0  
-	- Ubuntu 10.04 32bit (cross-compile)  
-	- ADB 
+## Video demo
+<video  controls preload="auto" width="100%" height="100%" >
+        <source src="videos/MrHublot.mp4" type='video/mp4' />
+</video> 
+
 
 ##Some useful hot-links
 * [Download the source code](https://github.com/condroid/source-code)
