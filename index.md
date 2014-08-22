@@ -14,13 +14,19 @@ Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization so
    </video>
 
 
-##Some useful hot-links
-* [Download the source code](https://github.com/condroid/source-code)
+##Some revelant links
 
-* [Download the conbinder-source code](https://github.com/condroid/conbinder-source)
+[Cells: Lightweight Virtual Smartphones](http://systems.cs.columbia.edu/projects/cells/)
 
-* [Documention](http://condroid.github.io/docs.html)
+[cellrox](http://www.cellrox.com/)
 
-* Visit the homepage of [Architecture Lab of Zhejiang University(ARC)](http://arc.zju.edu.cn/new/index)
+[Xen ARM](http://www.xenproject.org/developers/teams/arm-hypervisor.html)
 
+[KVM ARM](http://www.virtualopensystems.com/)
+
+[Xvisor](http://xhypervisor.org/)
+
+[ARMvisor](https://sites.google.com/a/sslab.cs.nthu.edu.tw/armvisor/home)
+
+[OKL4 Microvisor](http://www.ok-labs.com/products/okl4-microvisor)
 
