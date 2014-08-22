@@ -86,7 +86,8 @@ h4, h5, h6 {
 }
 
 a {
-  color:#C30000;
+  /*color:#C30000;*/
+  color:#330000;
   font-weight:200;
   text-decoration:none;
 }
