@@ -9,8 +9,7 @@ Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization so
 
 ## Video demo
   <video  controls preload="auto" width="100%" height="100%" >
-          <source src="videos/MrHublot.mp4" type='video/mp4' />
-          <source src="videos/MrHublot.rmvb" type='video/rmvb' />
+          <source src="videos/demo.mp4" type='video/mp4' />
    </video>
 
 
