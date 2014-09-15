@@ -7,7 +7,7 @@ tagline: This is homepage
 
 Condroid (And**roid** + **Con**tainer) is a lightweight mobile virtualization solution based on OS-level virtualization method. It supports multiple isolated Android user-space instances simultaneously, which enables two or more individual, completely independent, and secure personas to coexist seamlessly on one device.  
 
-## Video demo
+## Video demo [download](videos/demo.flv)
 <video  controls preload="auto" width="100%" height="100%" >
           #<source src="videos/demo.mp4" type='video/mp4' />
     <source id="mp4" src="videos/demo.mp4" type="video/mp4">
